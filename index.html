@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Effektz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --page-bg:#18181A;
+    --shell:#161618;
+    --field:#232326;
+    --field-hi:#2C2C30;
+    --border:#333336;
+    --border-soft:#2A2A2D;
+    --text:#F5F5F4;
+    --muted:#9A9A9D;
+    --muted-2:#6B6B6E;
+    --accent:#ECECEA;
+    --white:#FFFFFF;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+    --sans:'Inter', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;max-width:100vw;}
+  body{
+    background:var(--shell);
+    color:var(--text);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  .app-shell{
+    height:100%; display:flex; flex-direction:column;
+    background:var(--shell);
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px; border-bottom:1px solid var(--border-soft); flex-shrink:0; position:relative;
+  }
+  .brand{display:flex; align-items:baseline; gap:8px;}
+  .brand .mark{font-weight:600; font-size:15px; letter-spacing:-0.01em;}
+  .topbar-right{display:flex; align-items:center; gap:8px;}
+  .icon-btn{
+    width:28px; height:28px; border-radius:6px; background:var(--field);
+    border:1px solid var(--border-soft); color:var(--muted); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:13px;
+    transition:all .12s ease;
+  }
+  .icon-btn:hover{color:var(--text); border-color:#333;}
+  .popover{
+    position:absolute; top:46px; right:20px; width:250px; background:var(--field-hi);
+    border:1px solid var(--border-soft); border-radius:8px; padding:14px; font-size:11.5px;
+    color:var(--muted); line-height:1.6; box-shadow:0 20px 40px -10px rgba(0,0,0,0.7);
+    display:none; z-index:100;
+  }
+  .popover.open{display:block;}
+  .popover b{color:var(--text);}
+
+  /* ---------- layout: left sidebar, stage, right sidebar ---------- */
+  .layout{
+    flex:1; min-height:0; min-width:0; display:grid;
+    grid-template-columns:250px minmax(0,1fr) 290px;
+  }
+  @media (max-width: 1180px){ .layout{grid-template-columns:210px minmax(0,1fr) 260px;} }
+  @media (max-width: 860px){
+    .layout{grid-template-columns:1fr; grid-template-rows:auto 38vh auto;}
+    .stage{order:-1;}
+  }
+
+  .sidebar{padding:16px 18px; overflow-y:auto; overflow-x:hidden; min-height:0; min-width:0;}
+  .sidebar-left{border-right:1px solid var(--border-soft); display:flex; flex-direction:column; padding:0;}
+  .sidebar-left .sidebar-scroll{flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding:16px 18px;}
+  .sidebar-left .sidebar-footer{flex-shrink:0; padding:12px 18px 16px; border-top:1px solid var(--border-soft);}
+  .sidebar-right{border-left:1px solid var(--border-soft); min-width:0;}
+  @media (max-width: 860px){ .sidebar{border:none !important; border-top:1px solid var(--border-soft) !important;} }
+
+  .group{margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--border-soft);}
+  .group:last-child{margin-bottom:0; padding-bottom:0; border-bottom:none;}
+  .group-title{
+    display:flex; align-items:center; gap:8px; font-size:11px; font-weight:600; color:var(--muted);
+    text-transform:uppercase; letter-spacing:0.05em;
+    margin-bottom:12px; cursor:pointer; user-select:none;
+  }
+  .group-title .gt-icon{width:14px; height:14px; color:var(--muted); flex-shrink:0; display:flex; align-items:center; justify-content:center;}
+  .group-title .gt-icon svg{width:14px; height:14px;}
+  .group-title span:not(.gt-icon):not(.gt-toggle){flex:1;}
+  .group-title .gt-toggle{color:var(--muted-2); flex-shrink:0; transition:transform .15s ease; display:flex;}
+  .group-title .gt-toggle svg{width:11px; height:11px;}
+  .group-title.collapsed .gt-toggle{transform:rotate(-90deg);}
+  .group-body{display:block;}
+  .group-body.closed{display:none;}
+
+  /* ---------- file info / dropzone ---------- */
+  .file-info{background:var(--field); border:1px solid var(--border-soft); border-radius:10px; padding:10px 12px; margin-bottom:10px;}
+  .file-info-row{display:flex; align-items:center; justify-content:space-between; padding:3px 0; font-size:11.5px;}
+  .fi-label{color:var(--text);}
+  .fi-key{color:var(--muted-2);}
+  .fi-val{color:var(--muted); max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .fi-clear{background:none; border:none; color:var(--muted-2); font-size:11px; cursor:pointer;}
+  .fi-clear:hover{color:var(--text);}
+  .drop{
+    border:1px dashed #2c2c2d; border-radius:6px; padding:18px 12px; text-align:center;
+    cursor:pointer; transition:all .12s ease; background:var(--field); display:block;
+  }
+  .drop:hover, .drop.drag{border-color:var(--muted-2); background:var(--field-hi);}
+  .drop .t1{font-size:12px; color:var(--text);}
+  .drop .t2{font-size:10.5px; color:var(--muted-2); margin-top:3px;}
+  input[type=file]{display:none;}
+
+  /* ---------- effects radio list (single-select) ---------- */
+  .fx-search{
+    display:flex; align-items:center; gap:8px; background:var(--field); border:1px solid var(--border-soft);
+    border-radius:8px; padding:7px 10px; margin-bottom:10px; color:var(--muted-2);
+  }
+  .fx-search input{
+    flex:1; min-width:0; background:none; border:none; outline:none; color:var(--text);
+    font-family:var(--sans); font-size:12px;
+  }
+  .fx-search input::placeholder{color:var(--muted-2);}
+  .fx-list{display:flex; flex-direction:column; gap:1px;}
+  .fx-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 4px; border-radius:5px;
+    cursor:pointer; font-size:12.5px; color:var(--muted); transition:color .12s ease;
+  }
+  .fx-row:hover{background:var(--field);}
+  .fx-row.active{color:var(--text); font-weight:600;}
+  .fx-toggle{
+    position:relative; width:26px; height:15px; border-radius:20px;
+    background:var(--field-hi); border:1px solid var(--border-soft);
+    flex-shrink:0; transition:background .15s ease;
+  }
+  .fx-toggle::after{
+    content:''; position:absolute; width:11px; height:11px; border-radius:50%;
+    background:var(--muted-2); top:1px; left:1px; transition:left .15s ease, background .15s ease;
+  }
+  .fx-row.active .fx-toggle{background:#3a3a3c; border-color:#48484a;}
+  .fx-row.active .fx-toggle::after{left:12px; background:var(--white);}
+
+  /* ---------- settings panel: two-row param style (label+value, then full slider) ---------- */
+  .settings-effect-name{font-size:12.5px; font-weight:600; color:var(--text); margin-bottom:14px;}
+  .preset-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;}
+  .preset-pill{
+    background:var(--field-hi); border:1px solid var(--border-soft); color:var(--muted);
+    font-family:var(--sans); font-size:11px; font-weight:500; padding:6px 11px; border-radius:999px;
+    cursor:pointer; transition:all .12s ease;
+  }
+  .preset-pill:hover{color:var(--text); border-color:#3c3c3e;}
+  .param-row{margin-bottom:16px;}
+  .param-row:last-child{margin-bottom:0;}
+  .param-label{font-size:12px; color:var(--muted);}
+  .param-value{font-size:12px; color:var(--text); font-weight:600;}
+
+  /* filled-bar slider row: the pill's own background fills as a progress indicator */
+  .fill-row{
+    position:relative; height:38px; border-radius:10px; overflow:hidden;
+    background:var(--field); border:1px solid var(--border-soft);
+    cursor:pointer; user-select:none;
+  }
+  .fill-bar{
+    position:absolute; top:0; left:0; height:100%;
+    background:var(--field-hi);
+    pointer-events:none; will-change:width;
+  }
+  .fill-grip{
+    position:absolute; top:50%; right:0; transform:translate(50%,-50%);
+    width:4px; height:18px; border-radius:3px;
+    background:var(--white); opacity:0;
+    box-shadow:0 1px 3px rgba(0,0,0,0.5);
+    transition:opacity .15s ease;
+  }
+  .fill-row:hover .fill-grip{opacity:0.95;}
+  .fill-content{
+    position:relative; z-index:2; height:100%;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 12px; pointer-events:none;
+  }
+  .fill-label{font-size:12px; color:var(--muted); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .fill-value{font-size:12.5px; color:var(--text); font-weight:600; flex-shrink:0; margin-left:10px;}
+
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:3px; border-radius:3px;
+    outline:none; cursor:pointer;
+    background:linear-gradient(to right, var(--white) 0%, var(--white) var(--fill,50%), #2a2a2b var(--fill,50%), #2a2a2b 100%);
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+    background:var(--white); cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.6);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:13px; height:13px; border-radius:50%; background:var(--white); border:none; cursor:pointer;
+  }
+  select{
+    width:100%; background-color:var(--field-hi); border:1px solid var(--border-soft); color:var(--text);
+    font-family:var(--sans); font-size:11.5px; padding:8px 28px 8px 10px; border-radius:10px; cursor:pointer;
+    appearance:none; -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238C8C8A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 9px center; background-size:12px;
+  }
+  .field-text input{
+    width:100%; background:var(--field-hi); border:1px solid var(--border-soft); color:var(--text);
+    font-family:var(--sans); font-size:12px; padding:8px 10px; border-radius:10px;
+  }
+
+  /* ---------- capsule toggle ---------- */
+  .capsule{display:inline-flex; background:var(--field-hi); border-radius:10px; padding:3px; gap:3px; min-width:0;}
+  .capsule.block{display:flex; width:100%;}
+  .capsule button{
+    flex:1; min-width:0; border:none; background:transparent; color:var(--muted); font-size:11px; font-family:var(--sans);
+    padding:7px 8px; border-radius:7px; cursor:pointer; transition:all .12s ease;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .capsule button.active{background:#48484D; color:var(--white); font-weight:600; box-shadow:inset 0 0 0 1px #5A5A60;}
+
+  /* ---------- format cards ---------- */
+  .format-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; min-width:0;}
+  .format-grid-3{grid-template-columns:1fr 1fr 1fr;}
+  .format-grid > *{min-width:0;}
+  .format-card{
+    display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+    background:var(--field); border:1px solid var(--border-soft); border-radius:6px;
+    padding:9px 11px; cursor:pointer; transition:all .12s ease; min-width:0; overflow:hidden;
+  }
+  .format-card:hover{border-color:#3a3a3c;}
+  .format-card.active{border-color:var(--text);}
+  .fc-name{font-size:11.5px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
+  .fc-ext{font-size:10px; color:var(--muted-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
+  .res-readout{margin-top:8px; font-size:10.5px; color:var(--muted-2); text-align:center;}
+
+  .btn{
+    width:100%; font-family:var(--sans); font-size:12px; font-weight:600;
+    padding:10px 14px; border-radius:10px; border:1px solid var(--border-soft); background:var(--field);
+    color:var(--text); cursor:pointer; transition:all .12s ease;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .btn:hover{border-color:#3c3c3e;}
+  .btn.primary{background:var(--white); border-color:var(--white); color:#0A0A0A;}
+  .btn-badge{
+    background:rgba(0,0,0,0.12); color:#0A0A0A; font-size:10.5px; font-weight:700;
+    padding:2px 7px; border-radius:999px;
+  }
+  .btn.primary:hover{background:#d9d9d7;}
+  .btn:disabled{opacity:0.3; cursor:not-allowed;}
+
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; padding:2px 0; min-width:0; gap:8px;}
+  .toggle-row span{font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  /* ---------- color fields ---------- */
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:8px; min-width:0;}
+  .row2 > *{min-width:0;}
+  .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; min-width:0;}
+  .row3 > *{min-width:0;}
+  .color-field{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    background:var(--field); border:1px solid var(--border-soft); border-radius:10px; padding:7px 9px;
+    min-width:0; overflow:hidden;
+  }
+  .color-field span.cf-label{font-size:10.5px; color:var(--muted); flex-shrink:0;}
+  .color-field input.cf-hex{
+    font-family:var(--sans); font-size:10px; color:var(--text); flex:1; min-width:0;
+    background:var(--field-hi); border:1px solid var(--border-soft); border-radius:7px; padding:4px 6px; outline:none;
+  }
+  .color-field input[type=color]{width:20px; height:16px; border:none; background:none; padding:0; cursor:pointer; flex-shrink:0;}
+  .color-field.stack{flex-direction:column; align-items:flex-start; gap:6px;}
+  .color-field.stack input.cf-hex{width:100%;}
+  .color-field.stack input[type=color]{width:100%; height:18px;}
+
+  /* ---------- stage ---------- */
+  .stage{position:relative; display:flex; flex-direction:column; min-height:0; min-width:0; overflow:hidden; background:#050505;}
+  .canvas-viewport{flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:20px; overflow:auto;}
+  .fullscreen-btn{
+    position:absolute; top:12px; right:14px; z-index:16; width:28px; height:28px; border-radius:6px;
+    background:var(--field); border:1px solid var(--border-soft); color:var(--muted);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .12s ease;
+  }
+  .fullscreen-btn:hover{color:var(--text); border-color:#333;}
+  .canvas-wrap{
+    position:relative; border-radius:4px; overflow:hidden; transition:transform .1s ease;
+    box-shadow:0 0 0 1px var(--border-soft);
+    background:
+      linear-gradient(45deg, #131313 25%, transparent 25%),
+      linear-gradient(-45deg, #131313 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #131313 75%),
+      linear-gradient(-45deg, transparent 75%, #131313 75%);
+    background-size:14px 14px; background-position:0 0, 0 7px, 7px -7px, -7px 0px; background-color:#0d0d0d;
+  }
+  canvas{display:block; max-width:100%; max-height:100%;}
+  .empty-state{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; text-align:center; padding:0 30px; z-index:5;}
+  .empty-state .big{font-size:13px; color:var(--muted); line-height:1.7;}
+  .empty-state .big span{color:var(--text);}
+
+  ::-webkit-scrollbar{width:6px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#222; border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div class="topbar">
+    <div class="brand"><div class="mark">Effektz</div></div>
+    <div class="topbar-right">
+      <button class="icon-btn" id="resetBtn" title="Reset">↺</button>
+      <button class="icon-btn" id="moreBtn" title="Info">i</button>
+      <div class="popover" id="morePopover">
+        <b>Effektz</b><br>
+        Apply one generative effect at a time to an image or video, fine-tune it, and export at any resolution. Nothing you drop in ever leaves your browser.
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <div class="sidebar sidebar-left">
+      <div class="sidebar-scroll">
+        <div class="group">
+          <div class="group-title" data-collapse="src"><span class="gt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5"></path><path d="M5 19h14"></path></svg></span><span>Input</span><span class="gt-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
+          <div class="group-body" id="grp-src">
+            <div class="file-info" id="fileInfo" style="display:none;">
+              <div class="file-info-row"><span class="fi-label" id="fileInfoStatus">Image loaded</span><button class="fi-clear" id="clearBtn">Clear</button></div>
+              <div class="file-info-row"><span class="fi-key">Resolution</span><span class="fi-val" id="fileInfoRes">— × —</span></div>
+              <div class="file-info-row"><span class="fi-key">File</span><span class="fi-val" id="fileInfoName">—</span></div>
+            </div>
+            <label class="drop" id="dropZone">
+              <div class="t1">Drop file or click to browse</div>
+              <div class="t2">PNG, JPG, MP4, WEBM</div>
+              <input type="file" id="fileInput" accept="image/*,video/*">
+            </label>
+          </div>
+        </div>
+
+        <div class="group" style="border-bottom:none;">
+          <div class="group-title" data-collapse="fx"><span class="gt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3z"></path><path d="M19 15l.7 1.9 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7L19 15z"></path></svg></span><span>Effects</span><span class="gt-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
+          <div class="group-body" id="grp-fx">
+            <div class="fx-search">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" id="fxSearch" placeholder="Search effects...">
+            </div>
+            <div class="fx-list" id="fxList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage" id="stageEl">
+      <button class="fullscreen-btn" id="fullscreenBtn" title="Fullscreen">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+      </button>
+      <div class="canvas-viewport" id="canvasViewport">
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="outputCanvas" width="800" height="600"></canvas>
+          <div class="empty-state" id="emptyState">
+            <div class="big">Drop an image or video,<br>pick an <span>effect</span> on the left.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar sidebar-right">
+      <div class="group">
+        <div class="group-title" data-collapse="settings"><span class="gt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"></line><circle cx="14" cy="6" r="2"></circle><line x1="4" y1="12" x2="20" y2="12"></line><circle cx="8" cy="12" r="2"></circle><line x1="4" y1="18" x2="20" y2="18"></line><circle cx="16" cy="18" r="2"></circle></svg></span><span>Settings</span><span class="gt-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
+        <div class="group-body" id="grp-settings">
+          <div class="settings-effect-name" id="settingsEffectName">Dots</div>
+          <div id="effectParams"></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title" data-collapse="adj"><span class="gt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"></path></svg></span><span>Adjustments</span><span class="gt-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
+        <div class="group-body" id="grp-adj">
+          <div class="fill-row" id="contrastRow" style="margin-bottom:10px;">
+            <div class="fill-bar" id="contrastBar"><div class="fill-grip"></div></div>
+            <div class="fill-content"><span class="fill-label">Contrast</span><span class="fill-value" id="contrastVal">100%</span></div>
+          </div>
+          <div class="fill-row" id="gammaRow" style="margin-bottom:10px;">
+            <div class="fill-bar" id="gammaBar"><div class="fill-grip"></div></div>
+            <div class="fill-content"><span class="fill-label">Gamma</span><span class="fill-value" id="gammaVal">1.0</span></div>
+          </div>
+          <div class="fill-row" id="brightRow" style="margin-bottom:14px;">
+            <div class="fill-bar" id="brightBar"><div class="fill-grip"></div></div>
+            <div class="fill-content"><span class="fill-label">Brightness</span><span class="fill-value" id="brightVal">0</span></div>
+          </div>
+          <div class="toggle-row">
+            <span>Invert</span>
+            <div class="capsule" id="invertToggle" style="width:80px;">
+              <button data-val="no" class="active">No</button>
+              <button data-val="yes">Yes</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title" data-collapse="color"><span class="gt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c4 5 7 8.5 7 12a7 7 0 01-14 0c0-3.5 3-7 7-12z"></path></svg></span><span>Color</span><span class="gt-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
+        <div class="group-body" id="grp-color">
+          <div class="capsule block" id="colorSeg" style="margin-bottom:12px;">
+            <button data-cmode="original" class="active">Original</button>
+            <button data-cmode="solid">Solid</button>
+            <button data-cmode="gradient">Gradient</button>
+          </div>
+
+          <div id="solidColorField" style="display:none;">
+            <div class="row2">
+              <div class="color-field"><span class="cf-label">FG</span><input type="text" class="cf-hex" id="fgHex" value="#4C7DFF" maxlength="7"><input type="color" id="fgColor" value="#4c7dff"></div>
+              <div class="color-field"><span class="cf-label">BG</span><input type="text" class="cf-hex" id="bgHex" value="#0D0F11" maxlength="7"><input type="color" id="bgColor" value="#0d0f11"></div>
+            </div>
+          </div>
+
+          <div id="gradientColorField" style="display:none;">
+            <select id="gradientPreset" style="margin-bottom:8px;">
+              <option value="ocean">Ocean</option>
+              <option value="heat">Heat Map</option>
+              <option value="ring">Red Ring</option>
+              <option value="mono">Mono Tone</option>
+              <option value="custom">Custom</option>
+            </select>
+            <div class="row3">
+              <div class="color-field stack"><span class="cf-label">Shadow</span><input type="text" class="cf-hex" id="gradShadowHex" value="#0D0F11" maxlength="7"><input type="color" id="gradShadow" value="#0d0f11"></div>
+              <div class="color-field stack"><span class="cf-label">Mid</span><input type="text" class="cf-hex" id="gradMidHex" value="#2B3E80" maxlength="7"><input type="color" id="gradMid" value="#2b3e80"></div>
+              <div class="color-field stack"><span class="cf-label">High</span><input type="text" class="cf-hex" id="gradHiHex" value="#ECECE4" maxlength="7"><input type="color" id="gradHi" value="#ecece4"></div>
+            </div>
+          </div>
+
+          <div id="bgColorOnlyField" style="margin-top:4px;">
+            <div class="color-field" style="margin-bottom:8px;"><span class="cf-label">Background</span><input type="text" class="cf-hex" id="bgOnlyHex" value="#0D0F11" maxlength="7"><input type="color" id="bgColorOnly" value="#0d0f11"></div>
+            <div class="capsule block" id="transparentCapsule">
+              <button data-t="opaque" class="active">Opaque</button>
+              <button data-t="transparent">Transparent</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group" style="border-bottom:none;">
+        <div class="group-title collapsed" data-collapse="export"><span class="gt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"></path><path d="M5 21h14"></path></svg></span><span>Export</span><span class="gt-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
+        <div class="group-body closed" id="grp-export">
+          <div style="margin-bottom:12px;">
+            <div class="param-label" style="margin-bottom:8px;">Format</div>
+            <div class="format-grid format-grid-3" id="formatCapsule">
+              <button class="format-card active" data-fmt="png"><span class="fc-name">PNG</span><span class="fc-ext">.png</span></button>
+              <button class="format-card" data-fmt="jpg"><span class="fc-name">JPEG</span><span class="fc-ext">.jpg</span></button>
+              <button class="format-card" data-fmt="svg"><span class="fc-name">SVG</span><span class="fc-ext">.svg</span></button>
+            </div>
+          </div>
+          <div>
+            <div class="param-label" style="margin-bottom:8px;">Resolution</div>
+            <div class="capsule block" id="scaleCapsule">
+              <button data-scale="1" class="active">1x</button>
+              <button data-scale="2">2x</button>
+              <button data-scale="3">3x</button>
+              <button data-scale="4">4x</button>
+            </div>
+            <div class="res-readout" id="resReadout">— × — px</div>
+          </div>
+        </div>
+        <button class="btn primary" id="downloadBtn" disabled style="margin-top:14px;"><span>Download</span><span class="btn-badge" id="btnBadge">—</span></button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const canvas = document.getElementById('outputCanvas');
+  const ctx = canvas.getContext('2d');
+  const emptyState = document.getElementById('emptyState');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const moreBtn = document.getElementById('moreBtn');
+  const morePopover = document.getElementById('morePopover');
+  const stageEl = document.getElementById('stageEl');
+
+  // Wire file import FIRST so nothing later can ever block it.
+  ['dragover','dragenter'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('drag'); }));
+  dropZone.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+  fileInput.addEventListener('change', e => { const f = e.target.files[0]; if (f) loadFile(f); });
+
+  moreBtn.addEventListener('click', e => { e.stopPropagation(); morePopover.classList.toggle('open'); });
+  document.addEventListener('click', e => { if (!morePopover.contains(e.target) && e.target !== moreBtn) morePopover.classList.remove('open'); });
+  resetBtn.addEventListener('click', () => location.reload());
+
+  // collapsible sections ("−"/"+")
+  document.querySelectorAll('.group-title[data-collapse]').forEach(header => {
+    header.addEventListener('click', () => {
+      const key = header.dataset.collapse;
+      const body = document.getElementById('grp-' + key);
+      const closed = body.classList.toggle('closed');
+      header.classList.toggle('collapsed', closed);
+    });
+  });
+
+  const sampleCanvas = document.createElement('canvas');
+  const sampleCtx = sampleCanvas.getContext('2d', {willReadFrequently:true});
+  const glowCanvas = document.createElement('canvas');
+  const glowCtx = glowCanvas.getContext('2d', {willReadFrequently:true});
+  const vhsCanvas = document.createElement('canvas');
+  const vhsCtx = vhsCanvas.getContext('2d', {willReadFrequently:true});
+  const compositeCanvas = document.createElement('canvas');
+  const compositeCtx = compositeCanvas.getContext('2d', {willReadFrequently:true});
+
+  const grainCanvas = document.createElement('canvas');
+  let grainCtx = null;
+  try { grainCtx = grainCanvas.getContext('2d'); } catch(e){ console.warn('Grain texture unavailable:', e); }
+
+  let sourceType = null;
+  let currentFileName = '';
+  let img = new Image();
+  let video = document.createElement('video');
+  video.loop = true; video.muted = true; video.playsInline = true;
+  let rafId = null;
+  let srcW = 0, srcH = 0;
+
+  const state = {
+    activeEffect: 'dots',
+    contrast: 100,
+    gamma: 100,
+    brightness: 0,
+    invert: false,
+    colorMode: 'original',
+    fg: '#4c7dff',
+    bg: '#0d0f11',
+    bgOnly: '#0d0f11',
+    gradShadow: '#0d0f11',
+    gradMid: '#2b3e80',
+    gradHi: '#ecece4',
+    transparent: false,
+    format: 'png',
+    exportScale: 1
+  };
+
+  const CHARSETS = {
+    density: [' ','.',':','-','=','+','*','#','%','@'],
+    binary: [' ','0','1'],
+    blocky: [' ','.',':','i','I','l','1','0','$','@'],
+    symbolGradient: [' ','.','e','/','+','*','2','='],
+    digitalId: [' ','.','>','^','1','0','X','S','8'],
+    keyboard: [' ','.','esc','F1','F2','1','2','3','T','Y','U','D','F','G','H','J','V','B','space'],
+    dice: [' ','·','•','●','▲','■','◆']
+  };
+  const GRADIENT_PRESETS = {
+    ocean: ['#0d0f11', '#1f4f8f', '#f4f4ee'],
+    heat:  ['#0b1440', '#1f8f6e', '#f5e94a'],
+    ring:  ['#0a0a0a', '#c4372f', '#f2e6d0'],
+    mono:  ['#050608', '#20345c', '#4c7dff']
+  };
+
+  // ---------- effect definitions (single-select, no blend/opacity) ----------
+  const effects = [
+    { key:'dots', name:'Dots', desc:'Classic halftone dot grid',
+      params:[
+        {type:'slider', prop:'cellSize', label:'Cell Size', min:4, max:40, def:12, suffix:'px'},
+        {type:'slider', prop:'growth', label:'Dot Growth', min:40, max:220, def:95, suffix:'%'},
+        {type:'select', prop:'shape', label:'Dot Shape', def:'circle', options:[['circle','Circle'],['square','Square'],['diamond','Diamond']]}
+      ]},
+    { key:'blocks', name:'Blockify', desc:'Square mosaic sized by brightness',
+      params:[
+        {type:'slider', prop:'cellSize', label:'Cell Size', min:4, max:40, def:14, suffix:'px'},
+        {type:'slider', prop:'growth', label:'Block Growth', min:40, max:220, def:95, suffix:'%'}
+      ]},
+    { key:'facets', name:'Facets', desc:'Low-poly triangulated mosaic',
+      params:[ {type:'slider', prop:'cellSize', label:'Facet Size', min:8, max:60, def:24, suffix:'px'} ]},
+    { key:'rings', name:'Rings', desc:'Concentric dot rings from the center',
+      params:[
+        {type:'slider', prop:'cellSize', label:'Ring Spacing', min:4, max:40, def:12, suffix:'px'},
+        {type:'slider', prop:'growth', label:'Dot Growth', min:40, max:220, def:95, suffix:'%'}
+      ]},
+    { key:'ascii', name:'ASCII', desc:'Characters matched to brightness',
+      presets:[
+        {name:'Terminal', values:{cellSize:10, charset:'blocky'}},
+        {name:'Binary', values:{cellSize:8, charset:'binary'}}
+      ],
+      params:[
+        {type:'slider', prop:'cellSize', label:'Cell Size', min:4, max:40, def:12, suffix:'px'},
+        {type:'select', prop:'charset', label:'Character Set', def:'density', options:[
+          ['density','Density'],['binary','Binary'],['blocky','Terminal'],['symbolGradient','Number-Symbol'],
+          ['digitalId','Digital-ID'],['keyboard','Keyboard'],['dice','Symbol'],['custom','Custom']
+        ]},
+        {type:'text', prop:'customChars', label:'Custom Characters', def:' .:-=+*#%@', showWhen:'custom'}
+      ]},
+    { key:'matrixrain', name:'Matrix Rain', desc:'Falling character rain traced from brightness',
+      params:[
+        {type:'slider', prop:'cellSize', label:'Cell Size', min:6, max:30, def:14, suffix:'px'},
+        {type:'slider', prop:'trail', label:'Trail Length', min:3, max:40, def:15, suffix:''}
+      ]},
+    { key:'dither', name:'Dithering', desc:'Retro ordered (Bayer) dithering pattern',
+      params:[ {type:'slider', prop:'cellSize', label:'Cell Size', min:2, max:24, def:8, suffix:'px'} ]},
+    { key:'threshold', name:'Threshold', desc:'Hard black/white cutoff by brightness',
+      params:[ {type:'slider', prop:'threshold', label:'Threshold', min:0, max:100, def:50, suffix:'%'} ]},
+    { key:'edgedetect', name:'Edge Detection', desc:'Sobel-based outline extraction',
+      params:[ {type:'slider', prop:'strength', label:'Strength', min:0, max:200, def:100, suffix:'%'} ]},
+    { key:'crosshatch', name:'Crosshatch', desc:'Pen-and-ink hatching by darkness',
+      params:[ {type:'slider', prop:'cellSize', label:'Cell Size', min:6, max:30, def:14, suffix:'px'} ]},
+    { key:'pixelsort', name:'Pixel Sort', desc:'Glitch-sorts pixels above a brightness threshold',
+      params:[
+        {type:'slider', prop:'threshold', label:'Threshold', min:0, max:100, def:50, suffix:'%'},
+        {type:'toggle', prop:'direction', label:'Direction', def:'horizontal', onLabel:'Vertical', offLabel:'Horizontal', onVal:'vertical', offVal:'horizontal'}
+      ]},
+    { key:'voronoi', name:'Voronoi', desc:'Organic cellular mosaic',
+      params:[ {type:'slider', prop:'cellSize', label:'Cell Size', min:6, max:40, def:18, suffix:'px'} ]},
+    { key:'glow', name:'Glow', desc:'Blurred image remapped through a gradient',
+      params:[ {type:'slider', prop:'blur', label:'Blur', min:0, max:24, def:6, suffix:'px'} ]},
+    { key:'grain', name:'Film Grain', desc:'Organic film-like noise texture',
+      presets:[
+        {name:'Color Grain', values:{intensity:55, clumping:30, crush:10, chromatic:70}}
+      ],
+      params:[
+        {type:'slider', prop:'intensity', label:'Amount', min:0, max:100, def:60, suffix:'%'},
+        {type:'slider', prop:'clumping', label:'Clumping', min:0, max:100, def:30, suffix:'%'},
+        {type:'slider', prop:'crush', label:'Crush', min:0, max:100, def:0, suffix:'%'},
+        {type:'slider', prop:'chromatic', label:'Chromatic', min:0, max:100, def:0, suffix:'%'}
+      ]},
+    { key:'pinchbulge', name:'Pinch/Bulge', desc:'Radial lens warp — pinch inward or bulge outward',
+      params:[
+        {type:'slider', prop:'amount', label:'Amount', min:-100, max:100, def:50, suffix:'%'},
+        {type:'slider', prop:'radius', label:'Radius', min:10, max:100, def:60, suffix:'%'}
+      ]},
+    { key:'beads', name:'Beads', desc:'Edge-to-edge mosaic with a bead-like highlight',
+      params:[
+        {type:'slider', prop:'cellSize', label:'Cell Size', min:4, max:40, def:16, suffix:'px'},
+        {type:'slider', prop:'dotSize', label:'Dot Size', min:10, max:100, def:65, suffix:'%'},
+        {type:'slider', prop:'highlight', label:'Highlight', min:0, max:100, def:50, suffix:'%'}
+      ]},
+    { key:'vhs', name:'VHS', desc:'Scanlines, color bleed, noise and tracking error',
+      params:[
+        {type:'slider', prop:'colorBleed', label:'Color Bleed', min:0, max:100, def:50, suffix:'%'},
+        {type:'slider', prop:'scanlines', label:'Scanlines', min:0, max:100, def:30, suffix:'%'},
+        {type:'slider', prop:'noise', label:'Noise', min:0, max:100, def:30, suffix:'%'},
+        {type:'slider', prop:'tracking', label:'Tracking Error', min:0, max:100, def:20, suffix:'%'},
+        {type:'slider', prop:'seed', label:'Seed', min:1, max:9999, def:1337, suffix:''},
+        {type:'toggle', prop:'animate', label:'Output', def:'image', onLabel:'Video', offLabel:'Image', onVal:'video', offVal:'image'}
+      ]}
+  ];
+  effects.forEach(fx => {
+    fx.state = {};
+    fx.params.forEach(p => { fx.state[p.prop] = p.def; });
+  });
+
+  function getActiveEffect(){ return effects.find(e => e.key === state.activeEffect); }
+
+  // ---------- build effects list (single-select) ----------
+  const fxList = document.getElementById('fxList');
+  const settingsEffectName = document.getElementById('settingsEffectName');
+  const effectParamsEl = document.getElementById('effectParams');
+
+  let fxFilter = '';
+  function buildFxList(){
+    fxList.innerHTML = '';
+    const q = fxFilter.trim().toLowerCase();
+    effects.filter(fx => !q || fx.name.toLowerCase().includes(q)).forEach(fx => {
+      const row = document.createElement('div');
+      row.className = 'fx-row' + (fx.key === state.activeEffect ? ' active' : '');
+      row.title = fx.desc;
+      row.innerHTML = `<span>${fx.name}</span><span class="fx-toggle"></span>`;
+      row.addEventListener('click', () => {
+        state.activeEffect = fx.key;
+        buildFxList();
+        buildSettingsPanel();
+        renderIfReady();
+      });
+      fxList.appendChild(row);
+    });
+  }
+  document.getElementById('fxSearch').addEventListener('input', e => { fxFilter = e.target.value; buildFxList(); });
+
+  function buildSettingsPanel(){
+    const fx = getActiveEffect();
+    settingsEffectName.textContent = fx.name;
+    effectParamsEl.innerHTML = '';
+    if (fx.presets && fx.presets.length){
+      const presetRow = document.createElement('div');
+      presetRow.className = 'preset-row';
+      fx.presets.forEach(preset => {
+        const btn = document.createElement('button');
+        btn.className = 'preset-pill';
+        btn.textContent = preset.name;
+        btn.addEventListener('click', () => {
+          Object.assign(fx.state, preset.values);
+          buildSettingsPanel();
+          renderIfReady();
+        });
+        presetRow.appendChild(btn);
+      });
+      effectParamsEl.appendChild(presetRow);
+    }
+    fx.params.forEach(p => effectParamsEl.appendChild(buildParamField(fx, p)));
+  }
+
+  function makeDraggableFillRow(wrap, min, max, initial, suffix, onChange){
+    const bar = document.createElement('div'); bar.className = 'fill-bar';
+    const grip = document.createElement('div'); grip.className = 'fill-grip';
+    bar.appendChild(grip);
+    const content = document.createElement('div'); content.className = 'fill-content';
+    const value = document.createElement('span'); value.className = 'fill-value';
+    wrap.classList.add('fill-row');
+    wrap.style.touchAction = 'none';
+
+    function paint(v){
+      const pct = ((v - min) / (max - min)) * 100;
+      bar.style.width = pct + '%';
+      value.textContent = Math.round(v) + (suffix||'');
+    }
+    paint(initial);
+
+    function valueFromEvent(e){
+      const rect = wrap.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const pct = Math.max(0, Math.min(1, rect.width ? x / rect.width : 0));
+      return min + pct * (max - min);
+    }
+
+    let dragging = false;
+    wrap.addEventListener('pointerdown', e => {
+      dragging = true;
+      wrap.setPointerCapture(e.pointerId);
+      const v = valueFromEvent(e);
+      paint(v);
+      onChange(Math.round(v));
+    });
+    wrap.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const v = valueFromEvent(e);
+      paint(v);
+      onChange(Math.round(v));
+    });
+    function endDrag(e){ dragging = false; try { wrap.releasePointerCapture(e.pointerId); } catch(err){} }
+    wrap.addEventListener('pointerup', endDrag);
+    wrap.addEventListener('pointercancel', endDrag);
+
+    return { bar, content, value, paint };
+  }
+
+  function buildSliderField(fx, p){
+    const wrap = document.createElement('div');
+    wrap.style.marginBottom = '10px';
+    const parts = makeDraggableFillRow(wrap, p.min, p.max, fx.state[p.prop], p.suffix, v => {
+      fx.state[p.prop] = v;
+      renderIfReady();
+    });
+    const label = document.createElement('span'); label.className = 'fill-label'; label.textContent = p.label;
+    parts.content.append(label, parts.value);
+    wrap.append(parts.bar, parts.content);
+    return wrap;
+  }
+
+  function buildParamField(fx, p){
+    if (p.type === 'slider') return buildSliderField(fx, p);
+    if (p.type === 'select'){
+      const wrap = document.createElement('div'); wrap.className = 'param-row';
+      const label = document.createElement('div'); label.className = 'param-label'; label.style.marginBottom = '7px'; label.textContent = p.label;
+      const select = document.createElement('select');
+      p.options.forEach(([val, txt]) => { const opt = document.createElement('option'); opt.value = val; opt.textContent = txt; select.appendChild(opt); });
+      select.value = fx.state[p.prop];
+      select.addEventListener('change', () => {
+        fx.state[p.prop] = select.value;
+        const scope = select.closest('#effectParams') || document;
+        scope.querySelectorAll(`[data-linked-prop="${p.prop}"]`).forEach(w => {
+          w.style.display = (select.value === w.dataset.linkedValue) ? 'block' : 'none';
+        });
+        renderIfReady();
+      });
+      wrap.append(label, select);
+      return wrap;
+    }
+    if (p.type === 'text'){
+      const wrap = document.createElement('div'); wrap.className = 'field-text param-row';
+      const selectDef = fx.params.find(x => x.type === 'select' && x.options.some(o => o[0] === p.showWhen));
+      wrap.dataset.linkedProp = selectDef ? selectDef.prop : '';
+      wrap.dataset.linkedValue = p.showWhen || '';
+      wrap.style.display = (selectDef && fx.state[selectDef.prop] === p.showWhen) ? 'block' : 'none';
+      const input = document.createElement('input');
+      input.type = 'text'; input.maxLength = 24; input.placeholder = p.def;
+      input.value = fx.state[p.prop];
+      input.addEventListener('input', () => { fx.state[p.prop] = input.value || p.def; renderIfReady(); });
+      wrap.appendChild(input);
+      return wrap;
+    }
+    if (p.type === 'toggle'){
+      const wrap = document.createElement('div'); wrap.className = 'toggle-row param-row';
+      const label = document.createElement('span'); label.textContent = p.label;
+      label.style.flexShrink = '0';
+      const capsule = document.createElement('div'); capsule.className = 'capsule'; capsule.style.flex = '1'; capsule.style.minWidth = '0'; capsule.style.maxWidth = '170px';
+      const offBtn = document.createElement('button'); offBtn.textContent = p.offLabel; offBtn.dataset.val = p.offVal;
+      const onBtn = document.createElement('button'); onBtn.textContent = p.onLabel; onBtn.dataset.val = p.onVal;
+      (fx.state[p.prop] === onBtn.dataset.val ? onBtn : offBtn).classList.add('active');
+      capsule.append(offBtn, onBtn);
+      capsule.addEventListener('click', e => {
+        const btn = e.target.closest('button'); if (!btn) return;
+        capsule.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        fx.state[p.prop] = btn.dataset.val;
+        renderIfReady();
+      });
+      wrap.append(label, capsule);
+      return wrap;
+    }
+  }
+
+  buildFxList();
+  buildSettingsPanel();
+
+  // ---------- file loading ----------
+  function loadFile(file){
+    const isVideo = file.type.startsWith('video/');
+    sourceType = isVideo ? 'video' : 'image';
+    currentFileName = file.name;
+    const url = URL.createObjectURL(file);
+    if (isVideo){
+      video.pause(); cancelAnimLoop();
+      video.src = url;
+      video.onloadedmetadata = () => { srcW = video.videoWidth; srcH = video.videoHeight; onSourceReady(); video.play(); startVideoLoop(); };
+    } else {
+      cancelAnimLoop();
+      img = new Image();
+      img.onload = () => { srcW = img.naturalWidth; srcH = img.naturalHeight; onSourceReady(); render(); };
+      img.src = url;
+    }
+  }
+
+  function onSourceReady(){
+    fitPreviewCanvas();
+    setExportDefaults();
+    emptyState.style.display = 'none';
+    downloadBtn.disabled = false;
+    document.getElementById('fileInfoStatus').textContent = sourceType === 'video' ? 'Video loaded' : 'Image loaded';
+    document.getElementById('fileInfoRes').textContent = `${srcW} × ${srcH}`;
+    document.getElementById('fileInfoName').textContent = currentFileName;
+    document.getElementById('fileInfo').style.display = 'block';
+    dropZone.style.display = 'none';
+  }
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    cancelAnimLoop();
+    try { video.pause(); video.removeAttribute('src'); video.load(); } catch(e){}
+    img = new Image();
+    srcW = 0; srcH = 0; sourceType = null; currentFileName = '';
+    document.getElementById('fileInfo').style.display = 'none';
+    dropZone.style.display = 'block';
+    emptyState.style.display = 'block';
+    downloadBtn.disabled = true;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    fileInput.value = '';
+  });
+
+  function fitPreviewCanvas(){
+    if (!srcW || !srcH) return;
+    const vp = document.getElementById('canvasViewport');
+    const availW = vp.clientWidth - 8, availH = vp.clientHeight - 8;
+    const aspect = srcW / srcH;
+    let w = availW, h = w / aspect;
+    if (h > availH){ h = availH; w = h * aspect; }
+    canvas.width = Math.max(60, Math.round(w));
+    canvas.height = Math.max(60, Math.round(h));
+  }
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (srcW){ fitPreviewCanvas(); renderIfReady(); } }, 120);
+  });
+
+  function startVideoLoop(){
+    function loop(){ if (!video.paused && !video.ended){ render(); } rafId = requestAnimationFrame(loop); }
+    rafId = requestAnimationFrame(loop);
+  }
+  function cancelAnimLoop(){ if (rafId) cancelAnimationFrame(rafId); rafId = null; }
+
+  // ---------- fullscreen ----------
+  document.getElementById('fullscreenBtn').addEventListener('click', () => {
+    if (!document.fullscreenElement) stageEl.requestFullscreen?.(); else document.exitFullscreen?.();
+  });
+
+  // ---------- shared adjustments (pointer-drag on the row itself, no native range input) ----------
+  function bindFillRow(rowId, barId, valueId, min, max, initial, formatFn, onChange){
+    const wrap = document.getElementById(rowId);
+    const bar = document.getElementById(barId);
+    const valueEl = document.getElementById(valueId);
+    wrap.style.touchAction = 'none';
+    function paint(v){
+      const pct = ((v - min) / (max - min)) * 100;
+      bar.style.width = pct + '%';
+      valueEl.textContent = formatFn(v);
+    }
+    paint(initial);
+    function valueFromEvent(e){
+      const rect = wrap.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const pct = Math.max(0, Math.min(1, rect.width ? x / rect.width : 0));
+      return min + pct * (max - min);
+    }
+    let dragging = false;
+    wrap.addEventListener('pointerdown', e => {
+      dragging = true; wrap.setPointerCapture(e.pointerId);
+      const v = valueFromEvent(e); paint(v); onChange(Math.round(v));
+    });
+    wrap.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const v = valueFromEvent(e); paint(v); onChange(Math.round(v));
+    });
+    function endDrag(e){ dragging = false; try { wrap.releasePointerCapture(e.pointerId); } catch(err){} }
+    wrap.addEventListener('pointerup', endDrag);
+    wrap.addEventListener('pointercancel', endDrag);
+  }
+  bindFillRow('contrastRow','contrastBar','contrastVal', 50, 220, state.contrast, v => Math.round(v)+'%', v => { state.contrast = v; renderIfReady(); });
+  bindFillRow('brightRow','brightBar','brightVal', -100, 100, state.brightness, v => Math.round(v), v => { state.brightness = v; renderIfReady(); });
+  bindFillRow('gammaRow','gammaBar','gammaVal', 40, 250, state.gamma, v => (v/100).toFixed(2), v => { state.gamma = v; renderIfReady(); });
+
+  document.getElementById('invertToggle').addEventListener('click', e => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    document.querySelectorAll('#invertToggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.invert = btn.dataset.val === 'yes';
+    renderIfReady();
+  });
+
+  // ---------- color mode ----------
+  function setColorMode(mode){
+    state.colorMode = mode;
+    document.querySelectorAll('#colorSeg button').forEach(b => b.classList.toggle('active', b.dataset.cmode === mode));
+    document.getElementById('solidColorField').style.display = mode === 'solid' ? 'block' : 'none';
+    document.getElementById('gradientColorField').style.display = mode === 'gradient' ? 'block' : 'none';
+  }
+  document.getElementById('colorSeg').addEventListener('click', e => { const btn=e.target.closest('button'); if(!btn) return; setColorMode(btn.dataset.cmode); renderIfReady(); });
+  document.getElementById('gradientPreset').addEventListener('change', e => {
+    const v = e.target.value;
+    if (GRADIENT_PRESETS[v]){
+      const [s,m,h] = GRADIENT_PRESETS[v];
+      state.gradShadow=s; state.gradMid=m; state.gradHi=h;
+      document.getElementById('gradShadow').value=s; document.getElementById('gradMid').value=m; document.getElementById('gradHi').value=h;
+      document.getElementById('gradShadowHex').value=s.toUpperCase(); document.getElementById('gradMidHex').value=m.toUpperCase(); document.getElementById('gradHiHex').value=h.toUpperCase();
+      renderIfReady();
+    }
+  });
+  function setCustomPreset(){ document.getElementById('gradientPreset').value = 'custom'; }
+
+  document.getElementById('transparentCapsule').addEventListener('click', e => {
+    const btn=e.target.closest('button'); if(!btn) return;
+    document.querySelectorAll('#transparentCapsule button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); state.transparent = btn.dataset.t==='transparent'; renderIfReady();
+  });
+  document.getElementById('formatCapsule').addEventListener('click', e => {
+    const btn=e.target.closest('button'); if(!btn) return;
+    document.querySelectorAll('#formatCapsule button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); state.format = btn.dataset.fmt;
+  });
+
+  function wireColorPair(colorId, hexId, onChange){
+    const colorEl = document.getElementById(colorId), hexEl = document.getElementById(hexId);
+    colorEl.addEventListener('input', () => { hexEl.value = colorEl.value.toUpperCase(); onChange(colorEl.value); renderIfReady(); });
+    hexEl.addEventListener('input', () => {
+      let v = hexEl.value.trim(); if (v && v[0] !== '#') v = '#'+v;
+      if (/^#[0-9A-Fa-f]{6}$/.test(v)){ colorEl.value = v.toLowerCase(); onChange(v.toLowerCase()); renderIfReady(); }
+    });
+    hexEl.addEventListener('blur', () => { hexEl.value = colorEl.value.toUpperCase(); });
+  }
+  wireColorPair('fgColor','fgHex', v => state.fg = v);
+  wireColorPair('bgColor','bgHex', v => state.bg = v);
+  wireColorPair('bgColorOnly','bgOnlyHex', v => state.bgOnly = v);
+  wireColorPair('gradShadow','gradShadowHex', v => { state.gradShadow=v; setCustomPreset(); });
+  wireColorPair('gradMid','gradMidHex', v => { state.gradMid=v; setCustomPreset(); });
+  wireColorPair('gradHi','gradHiHex', v => { state.gradHi=v; setCustomPreset(); });
+
+  // ---------- export resolution ----------
+  const resReadout = document.getElementById('resReadout');
+  let baseW=0, baseH=0;
+  function updateResReadout(){
+    const s=state.exportScale||1;
+    const text = baseW ? `${baseW*s} × ${baseH*s} px` : '— × — px';
+    resReadout.textContent = text;
+    const badge = document.getElementById('btnBadge');
+    if (badge) badge.textContent = baseW ? `${s}x` : '—';
+  }
+  document.getElementById('scaleCapsule').addEventListener('click', e => {
+    const btn=e.target.closest('button'); if(!btn) return;
+    document.querySelectorAll('#scaleCapsule button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); state.exportScale = Number(btn.dataset.scale); updateResReadout();
+  });
+  function setExportDefaults(){ baseW=srcW; baseH=srcH; updateResReadout(); }
+
+  downloadBtn.addEventListener('click', () => {
+    const s = state.exportScale||1;
+    const w = Math.max(16, Math.round(baseW*s)) || canvas.width;
+    const h = Math.max(16, Math.round(baseH*s)) || canvas.height;
+    const link = document.createElement('a');
+
+    if (state.format === 'svg'){
+      const svgStr = buildSvgString(w, h);
+      const blob = new Blob([svgStr], {type:'image/svg+xml'});
+      link.download = 'effektz-' + Date.now() + '.svg';
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      return;
+    }
+
+    const exportCanvas = document.createElement('canvas'); exportCanvas.width=w; exportCanvas.height=h;
+    const exportCtx = exportCanvas.getContext('2d');
+    renderToTarget(exportCtx, w, h);
+    const ext = state.format==='jpg' ? 'jpg' : 'png';
+    link.download = 'effektz-' + Date.now() + '.' + ext;
+    if (state.format==='jpg'){
+      const tmp=document.createElement('canvas'); tmp.width=w; tmp.height=h;
+      const tctx=tmp.getContext('2d'); tctx.fillStyle='#0A0A0A'; tctx.fillRect(0,0,w,h); tctx.drawImage(exportCanvas,0,0);
+      link.href = tmp.toDataURL('image/jpeg', 0.92);
+    } else { link.href = exportCanvas.toDataURL('image/png'); }
+    link.click();
+  });
+
+  // ---------- color / lum helpers ----------
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function hexToRgb(hex){ const n=parseInt(hex.slice(1),16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+  function rgbStr(r,g,b){ return `rgb(${r|0},${g|0},${b|0})`; }
+  function gradRgbStr(arr){ return rgbStr(arr[0],arr[1],arr[2]); }
+  function gradientColorAt(lum){
+    const s=hexToRgb(state.gradShadow), m=hexToRgb(state.gradMid), h=hexToRgb(state.gradHi);
+    let r,g,b;
+    if (lum<0.5){ const t=lum/0.5; r=lerp(s[0],m[0],t); g=lerp(s[1],m[1],t); b=lerp(s[2],m[2],t); }
+    else { const t=(lum-0.5)/0.5; r=lerp(m[0],h[0],t); g=lerp(m[1],h[1],t); b=lerp(m[2],h[2],t); }
+    return [r,g,b];
+  }
+  function applyLum(lum){
+    const contrastF = state.contrast/100;
+    let v = (lum-0.5)*contrastF + 0.5 + (state.brightness/255);
+    v = Math.max(0, Math.min(1, v));
+    const gammaF = (state.gamma||100)/100;
+    if (gammaF !== 1) v = Math.pow(v, gammaF);
+    if (state.invert) v = 1 - v;
+    return v;
+  }
+  function colorForCell(r,g,b,lum){
+    if (state.colorMode==='original') return rgbStr(r,g,b);
+    if (state.colorMode==='solid') return state.fg;
+    const [gr,gg,gb] = gradientColorAt(lum);
+    return rgbStr(gr,gg,gb);
+  }
+  function averageCell(imgData, w, px, py, sampleW, sampleH){
+    let r=0,g=0,b=0,a=0,count=0;
+    const stepX=Math.max(1,Math.floor(sampleW/4)), stepY=Math.max(1,Math.floor(sampleH/4));
+    for (let yy=0; yy<sampleH; yy+=stepY){
+      for (let xx=0; xx<sampleW; xx+=stepX){
+        const idx=((py+yy)*w+(px+xx))*4;
+        r+=imgData[idx]; g+=imgData[idx+1]; b+=imgData[idx+2]; a+=imgData[idx+3]; count++;
+      }
+    }
+    if (count===0) return {r:0,g:0,b:0,a:0};
+    return {r:r/count,g:g/count,b:b/count,a:a/count};
+  }
+  function mulberry32(seed){
+    return function(){
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ---------- effect renderers ----------
+  function renderDots(tctx,w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell), growthF=eff.growth/100, shape=eff.shape||'circle';
+    for (let gy=0; gy<rows; gy++){
+      for (let gx=0; gx<cols; gx++){
+        const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+        if (sw<=0||sh<=0) continue;
+        const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+        let lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+        const radius=cell*0.5*growthF*lum; if (radius<0.4) continue;
+        const cx=px+sw/2, cy=py+sh/2;
+        tctx.fillStyle=colorForCell(c.r,c.g,c.b,lum);
+        tctx.beginPath();
+        if (shape==='square'){ tctx.rect(cx-radius,cy-radius,radius*2,radius*2); }
+        else if (shape==='diamond'){ tctx.moveTo(cx,cy-radius); tctx.lineTo(cx+radius,cy); tctx.lineTo(cx,cy+radius); tctx.lineTo(cx-radius,cy); tctx.closePath(); }
+        else { tctx.arc(cx,cy,radius,0,Math.PI*2); }
+        tctx.fill();
+      }
+    }
+  }
+  function renderBlocks(tctx,w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell), growthF=eff.growth/100;
+    for (let gy=0; gy<rows; gy++){
+      for (let gx=0; gx<cols; gx++){
+        const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+        if (sw<=0||sh<=0) continue;
+        const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+        let lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+        const size=cell*growthF*lum; if (size<0.6) continue;
+        const off=(cell-size)/2;
+        tctx.fillStyle=colorForCell(c.r,c.g,c.b,lum);
+        tctx.fillRect(px+off,py+off,size,size);
+      }
+    }
+  }
+  function renderAscii(tctx,w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    const chars = eff.charset==='custom' ? (eff.customChars && eff.customChars.trim().length ? [' '].concat(eff.customChars.trim().split('')) : CHARSETS.density) : CHARSETS[eff.charset];
+    tctx.textBaseline='top'; tctx.textAlign='center';
+    for (let gy=0; gy<rows; gy++){
+      for (let gx=0; gx<cols; gx++){
+        const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+        if (sw<=0||sh<=0) continue;
+        const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+        let lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255); if (lum<0.035) continue;
+        const idx=Math.min(chars.length-1, Math.floor(lum*chars.length));
+        const token=chars[idx]; if (!token||token===' ') continue;
+        const fontSize = token.length>1 ? cell*0.62 : cell*0.95;
+        tctx.font = fontSize+'px "IBM Plex Mono", monospace';
+        tctx.fillStyle=colorForCell(c.r,c.g,c.b,lum);
+        tctx.fillText(token, px+sw/2, py+sh*0.05);
+      }
+    }
+  }
+  function renderRings(tctx,w,h,imgData,eff){
+    const cx=w/2, cy=h/2, maxRadius=Math.sqrt(cx*cx+cy*cy), ringPitch=Math.max(4,eff.cellSize), growthF=eff.growth/100;
+    const numRings=Math.ceil(maxRadius/ringPitch);
+    for (let ring=0; ring<numRings; ring++){
+      const rDist=ring*ringPitch+ringPitch*0.5, circumference=2*Math.PI*rDist;
+      const numSlices=Math.max(6,Math.round(circumference/ringPitch));
+      for (let s=0; s<numSlices; s++){
+        const angle=(s/numSlices)*Math.PI*2, sx=cx+Math.cos(angle)*rDist, sy=cy+Math.sin(angle)*rDist;
+        if (sx<0||sy<0||sx>=w||sy>=h) continue;
+        const idx=(Math.floor(sy)*w+Math.floor(sx))*4;
+        const r=imgData[idx],g=imgData[idx+1],b=imgData[idx+2],a=imgData[idx+3]; if (a<10) continue;
+        let lum=applyLum((0.2126*r+0.7152*g+0.0722*b)/255);
+        const radius=ringPitch*0.5*growthF*lum; if (radius<0.4) continue;
+        tctx.beginPath(); tctx.fillStyle=colorForCell(r,g,b,lum); tctx.arc(sx,sy,radius,0,Math.PI*2); tctx.fill();
+      }
+    }
+  }
+  function pointSign(px,py,p1,p2){ return (px-p2[0])*(p1[1]-p2[1])-(p1[0]-p2[0])*(py-p2[1]); }
+  function pointInTri(px,py,a,b,c){
+    const d1=pointSign(px,py,a,b), d2=pointSign(px,py,b,c), d3=pointSign(px,py,c,a);
+    const hasNeg=d1<0||d2<0||d3<0, hasPos=d1>0||d2>0||d3>0;
+    return !(hasNeg&&hasPos);
+  }
+  function avgTriColor(imgData,w,h,tri){
+    const xs=tri.map(p=>p[0]), ys=tri.map(p=>p[1]);
+    const minX=Math.max(0,Math.floor(Math.min(...xs))), maxX=Math.min(w-1,Math.ceil(Math.max(...xs)));
+    const minY=Math.max(0,Math.floor(Math.min(...ys))), maxY=Math.min(h-1,Math.ceil(Math.max(...ys)));
+    let r=0,g=0,b=0,a=0,count=0;
+    const stepX=Math.max(1,Math.round((maxX-minX)/4)), stepY=Math.max(1,Math.round((maxY-minY)/4));
+    for (let y=minY; y<=maxY; y+=stepY){
+      for (let x=minX; x<=maxX; x+=stepX){
+        if (!pointInTri(x+0.5,y+0.5,tri[0],tri[1],tri[2])) continue;
+        const idx=(y*w+x)*4; r+=imgData[idx]; g+=imgData[idx+1]; b+=imgData[idx+2]; a+=imgData[idx+3]; count++;
+      }
+    }
+    if (count===0){
+      const cx=Math.round((xs[0]+xs[1]+xs[2])/3), cy=Math.round((ys[0]+ys[1]+ys[2])/3);
+      const idx=(Math.min(h-1,Math.max(0,cy))*w+Math.min(w-1,Math.max(0,cx)))*4;
+      return {r:imgData[idx],g:imgData[idx+1],b:imgData[idx+2],a:imgData[idx+3]};
+    }
+    return {r:r/count,g:g/count,b:b/count,a:a/count};
+  }
+  function renderFacets(tctx,w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    for (let gy=0; gy<rows; gy++){
+      for (let gx=0; gx<cols; gx++){
+        const x0=gx*cell, y0=gy*cell, x1=Math.min(x0+cell,w), y1=Math.min(y0+cell,h);
+        if (x1-x0<1||y1-y0<1) continue;
+        const flip=(gx+gy)%2===0;
+        const triA = flip ? [[x0,y0],[x1,y0],[x0,y1]] : [[x0,y0],[x1,y0],[x1,y1]];
+        const triB = flip ? [[x1,y0],[x1,y1],[x0,y1]] : [[x0,y0],[x1,y1],[x0,y1]];
+        [triA,triB].forEach(tri => {
+          const c=avgTriColor(imgData,w,h,tri); if (c.a<10) return;
+          let lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+          tctx.beginPath(); tctx.moveTo(tri[0][0],tri[0][1]); tctx.lineTo(tri[1][0],tri[1][1]); tctx.lineTo(tri[2][0],tri[2][1]); tctx.closePath();
+          tctx.fillStyle=colorForCell(c.r,c.g,c.b,lum); tctx.fill();
+        });
+      }
+    }
+  }
+  function renderGlow(tctx,w,h,eff){
+    const workW=Math.max(50,Math.round(w/3.2)), workH=Math.max(35,Math.round(h/3.2));
+    glowCanvas.width=workW; glowCanvas.height=workH; glowCtx.clearRect(0,0,workW,workH);
+    glowCtx.filter=`blur(${Math.max(0.5,eff.blur*0.4)}px)`;
+    if (sourceType==='image') glowCtx.drawImage(img,0,0,workW,workH); else glowCtx.drawImage(video,0,0,workW,workH);
+    glowCtx.filter='none';
+    let data; try { data=glowCtx.getImageData(0,0,workW,workH); } catch(e){ return; }
+    const px=data.data;
+    for (let i=0;i<px.length;i+=4){
+      let lum=applyLum((0.2126*px[i]+0.7152*px[i+1]+0.0722*px[i+2])/255);
+      const [r,g,b]=gradientColorAt(lum);
+      px[i]=r; px[i+1]=g; px[i+2]=b; px[i+3]=255;
+    }
+    glowCtx.putImageData(data,0,0);
+    tctx.imageSmoothingEnabled=true; tctx.filter=`blur(${eff.blur}px)`;
+    tctx.drawImage(glowCanvas,0,0,workW,workH,0,0,w,h); tctx.filter='none';
+  }
+  let grainCacheKey = null;
+  function ensureGrainTexture(clumping, crush, chromatic){
+    const key = clumping+'_'+crush+'_'+chromatic;
+    if (!grainCtx || grainCacheKey === key) return;
+    grainCacheKey = key;
+    const baseSize = 140;
+    const cellPx = Math.max(1, Math.round(1 + (clumping/100)*5));
+    const bufSize = Math.max(8, Math.round(baseSize/cellPx));
+    const buf = document.createElement('canvas'); buf.width=bufSize; buf.height=bufSize;
+    const bctx = buf.getContext('2d');
+    const crushThresh = (crush/100) * 160;
+    const id = bctx.createImageData(bufSize,bufSize);
+    for (let i=0; i<id.data.length; i+=4){
+      let base = Math.random()*255;
+      if (base < crushThresh) base *= 0.25;
+      let r=base,g=base,b=base;
+      if (chromatic > 0){
+        const mix = chromatic/100;
+        r = base*(1-mix) + Math.random()*255*mix;
+        g = base*(1-mix) + Math.random()*255*mix;
+        b = base*(1-mix) + Math.random()*255*mix;
+      }
+      id.data[i]=r; id.data[i+1]=g; id.data[i+2]=b; id.data[i+3]= 60 + Math.random()*80;
+    }
+    bctx.putImageData(id,0,0);
+    grainCanvas.width=baseSize; grainCanvas.height=baseSize;
+    grainCtx.imageSmoothingEnabled = false;
+    grainCtx.clearRect(0,0,baseSize,baseSize);
+    grainCtx.drawImage(buf,0,0,bufSize,bufSize,0,0,baseSize,baseSize);
+  }
+  function renderGrain(tctx,w,h,eff){
+    if (sourceType === 'image') tctx.drawImage(img, 0, 0, w, h);
+    else tctx.drawImage(video, 0, 0, w, h);
+    if (!grainCtx) return;
+    ensureGrainTexture(eff.clumping ?? 30, eff.crush ?? 0, eff.chromatic ?? 0);
+    const pattern=tctx.createPattern(grainCanvas,'repeat');
+    tctx.save();
+    tctx.globalAlpha=(eff.intensity??60)/100;
+    tctx.globalCompositeOperation='overlay';
+    tctx.fillStyle=pattern;
+    tctx.fillRect(0,0,w,h);
+    tctx.restore();
+  }
+  function renderPinchBulge(tctx,w,h,imgData,eff){
+    const amount = (eff.amount ?? 50) / 100;
+    const radiusF = (eff.radius ?? 60) / 100;
+    const cx = w/2, cy = h/2;
+    const maxR = Math.min(w,h)/2 * radiusF;
+    compositeCanvas.width=w; compositeCanvas.height=h;
+    let out; try { out = compositeCtx.createImageData(w,h); } catch(e){ return; }
+    const data = out.data;
+    for (let y=0; y<h; y++){
+      for (let x=0; x<w; x++){
+        const dx=x-cx, dy=y-cy;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        let sx=x, sy=y;
+        if (maxR>0 && dist < maxR){
+          const norm = dist/maxR;
+          const factor = Math.pow(norm, 1 - amount);
+          const newDist = factor*maxR;
+          const angle = Math.atan2(dy,dx);
+          sx = cx + Math.cos(angle)*newDist;
+          sy = cy + Math.sin(angle)*newDist;
+        }
+        sx = Math.min(w-1, Math.max(0, Math.round(sx)));
+        sy = Math.min(h-1, Math.max(0, Math.round(sy)));
+        const srcIdx=(sy*w+sx)*4, dstIdx=(y*w+x)*4;
+        data[dstIdx]=imgData[srcIdx]; data[dstIdx+1]=imgData[srcIdx+1]; data[dstIdx+2]=imgData[srcIdx+2]; data[dstIdx+3]=imgData[srcIdx+3];
+      }
+    }
+    compositeCtx.putImageData(out,0,0);
+    tctx.drawImage(compositeCanvas,0,0);
+  }
+  function renderBeads(tctx,w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    const dotScale=(eff.dotSize??65)/100, highlightAlpha=(eff.highlight??50)/100;
+    for (let gy=0; gy<rows; gy++){
+      for (let gx=0; gx<cols; gx++){
+        const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+        if (sw<=0||sh<=0) continue;
+        const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+        let lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+        tctx.fillStyle=colorForCell(c.r,c.g,c.b,lum); tctx.fillRect(px,py,sw,sh);
+        if (highlightAlpha>0){
+          const radius=Math.min(sw,sh)*0.5*dotScale;
+          if (radius>=0.4){
+            const cx=px+sw/2, cy=py+sh/2;
+            const grad=tctx.createRadialGradient(cx-radius*0.25,cy-radius*0.25,0,cx,cy,radius);
+            grad.addColorStop(0, `rgba(255,255,255,${highlightAlpha})`);
+            grad.addColorStop(0.6, `rgba(255,255,255,${highlightAlpha*0.5})`);
+            grad.addColorStop(1, `rgba(255,255,255,0)`);
+            tctx.beginPath(); tctx.fillStyle=grad; tctx.arc(cx,cy,radius,0,Math.PI*2); tctx.fill();
+          }
+        }
+      }
+    }
+  }
+  function renderThreshold(tctx,w,h,imgData,eff){
+    const thresh=(eff.threshold??50)/100;
+    compositeCanvas.width=w; compositeCanvas.height=h;
+    let out; try { out=compositeCtx.createImageData(w,h); } catch(e){ return; }
+    const data=out.data;
+    for (let i=0;i<imgData.length;i+=4){
+      const a=imgData[i+3]; if (a<10) continue;
+      const r=imgData[i],g=imgData[i+1],b=imgData[i+2];
+      const lum=applyLum((0.2126*r+0.7152*g+0.0722*b)/255);
+      if (lum>=thresh){
+        let cr,cg,cb;
+        if (state.colorMode==='original'){ cr=r;cg=g;cb=b; }
+        else if (state.colorMode==='solid'){ [cr,cg,cb]=hexToRgb(state.fg); }
+        else { [cr,cg,cb]=gradientColorAt(1); }
+        data[i]=cr; data[i+1]=cg; data[i+2]=cb; data[i+3]=255;
+      }
+    }
+    compositeCtx.putImageData(out,0,0);
+    tctx.drawImage(compositeCanvas,0,0);
+  }
+  const BAYER4=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+  function renderDither(tctx,w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    for (let gy=0; gy<rows; gy++){
+      for (let gx=0; gx<cols; gx++){
+        const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+        if (sw<=0||sh<=0) continue;
+        const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+        const lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+        const bayerVal=(BAYER4[(gy%4)*4+(gx%4)]+0.5)/16;
+        if (lum>=bayerVal){ tctx.fillStyle=colorForCell(c.r,c.g,c.b,lum); tctx.fillRect(px,py,sw,sh); }
+      }
+    }
+  }
+  function renderEdgeDetect(tctx,w,h,imgData,eff){
+    const strength=(eff.strength??100)/100;
+    const gray=new Float32Array(w*h);
+    for (let i=0;i<w*h;i++){ const idx=i*4; gray[i]=0.2126*imgData[idx]+0.7152*imgData[idx+1]+0.0722*imgData[idx+2]; }
+    compositeCanvas.width=w; compositeCanvas.height=h;
+    let out; try { out=compositeCtx.createImageData(w,h); } catch(e){ return; }
+    const data=out.data;
+    const gxK=[-1,0,1,-2,0,2,-1,0,1], gyK=[-1,-2,-1,0,0,0,1,2,1];
+    for (let y=1;y<h-1;y++){
+      for (let x=1;x<w-1;x++){
+        let gx=0,gy=0,k=0;
+        for (let dy=-1;dy<=1;dy++){ for (let dx=-1;dx<=1;dx++){ const v=gray[(y+dy)*w+(x+dx)]; gx+=v*gxK[k]; gy+=v*gyK[k]; k++; } }
+        const mag=Math.min(255, Math.sqrt(gx*gx+gy*gy)*strength);
+        if (mag>12){
+          const idx=(y*w+x)*4;
+          let cr,cg,cb;
+          if (state.colorMode==='original'){ cr=imgData[idx]; cg=imgData[idx+1]; cb=imgData[idx+2]; }
+          else if (state.colorMode==='solid'){ [cr,cg,cb]=hexToRgb(state.fg); }
+          else { [cr,cg,cb]=gradientColorAt(mag/255); }
+          data[idx]=cr; data[idx+1]=cg; data[idx+2]=cb; data[idx+3]=Math.min(255,mag*2);
+        }
+      }
+    }
+    compositeCtx.putImageData(out,0,0);
+    tctx.drawImage(compositeCanvas,0,0);
+  }
+  function renderCrosshatch(tctx,w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    tctx.lineWidth=Math.max(1,cell*0.08);
+    const angles=[45,-45,0,90];
+    for (let gy=0; gy<rows; gy++){
+      for (let gx=0; gx<cols; gx++){
+        const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+        if (sw<=0||sh<=0) continue;
+        const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+        let lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+        const dark=1-lum;
+        const levels = dark>0.75?4: dark>0.5?3: dark>0.25?2: dark>0.08?1:0;
+        if (levels===0) continue;
+        tctx.strokeStyle=colorForCell(c.r,c.g,c.b,lum);
+        const cx=px+sw/2, cy=py+sh/2, r=Math.max(sw,sh)*0.7;
+        for (let L=0;L<levels;L++){
+          const a=angles[L]*Math.PI/180;
+          tctx.beginPath(); tctx.moveTo(cx-Math.cos(a)*r, cy-Math.sin(a)*r); tctx.lineTo(cx+Math.cos(a)*r, cy+Math.sin(a)*r); tctx.stroke();
+        }
+      }
+    }
+  }
+  function renderPixelSort(tctx,w,h,imgData,eff){
+    const thresh=(eff.threshold??50)/100;
+    const vertical=eff.direction==='vertical';
+    let out; try { out=tctx.createImageData(w,h); } catch(e){ return; }
+    const data=out.data; data.set(imgData);
+    function getLum(idx){ return (0.2126*data[idx]+0.7152*data[idx+1]+0.0722*data[idx+2])/255; }
+    if (!vertical){
+      for (let y=0;y<h;y++){
+        let x=0;
+        while (x<w){
+          const idx=(y*w+x)*4;
+          if (getLum(idx)>thresh){
+            let x2=x; while (x2<w && getLum((y*w+x2)*4)>thresh) x2++;
+            const seg=[];
+            for (let k=x;k<x2;k++){ const i=(y*w+k)*4; seg.push([data[i],data[i+1],data[i+2],data[i+3]]); }
+            seg.sort((a,b)=> (0.2126*a[0]+0.7152*a[1]+0.0722*a[2]) - (0.2126*b[0]+0.7152*b[1]+0.0722*b[2]));
+            for (let k=0;k<seg.length;k++){ const i=(y*w+(x+k))*4; data[i]=seg[k][0]; data[i+1]=seg[k][1]; data[i+2]=seg[k][2]; data[i+3]=seg[k][3]; }
+            x=x2;
+          } else x++;
+        }
+      }
+    } else {
+      for (let xcol=0; xcol<w; xcol++){
+        let y=0;
+        while (y<h){
+          const idx=(y*w+xcol)*4;
+          if (getLum(idx)>thresh){
+            let y2=y; while (y2<h && getLum((y2*w+xcol)*4)>thresh) y2++;
+            const seg=[];
+            for (let k=y;k<y2;k++){ const i=(k*w+xcol)*4; seg.push([data[i],data[i+1],data[i+2],data[i+3]]); }
+            seg.sort((a,b)=> (0.2126*a[0]+0.7152*a[1]+0.0722*a[2]) - (0.2126*b[0]+0.7152*b[1]+0.0722*b[2]));
+            for (let k=0;k<seg.length;k++){ const i=((y+k)*w+xcol)*4; data[i]=seg[k][0]; data[i+1]=seg[k][1]; data[i+2]=seg[k][2]; data[i+3]=seg[k][3]; }
+            y=y2;
+          } else y++;
+        }
+      }
+    }
+    tctx.putImageData(out,0,0);
+  }
+  function renderVoronoi(tctx,w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    const seeds=[];
+    for (let gy=0; gy<rows; gy++){
+      seeds.push([]);
+      for (let gx=0; gx<cols; gx++){
+        const r1=mulberry32(gx*928371+gy*57+7)(), r2=mulberry32(gx*17+gy*928371+11)();
+        seeds[gy].push([gx*cell+r1*cell, gy*cell+r2*cell]);
+      }
+    }
+    compositeCanvas.width=w; compositeCanvas.height=h;
+    let out; try { out = compositeCtx.createImageData(w,h); } catch(e){ return; }
+    const data = out.data;
+    for (let y=0; y<h; y++){
+      const gy = Math.min(rows-1, Math.max(0, Math.floor(y/cell)));
+      for (let x=0; x<w; x++){
+        const gx = Math.min(cols-1, Math.max(0, Math.floor(x/cell)));
+        let best=Infinity, bestPt=null;
+        for (let ny=gy-1; ny<=gy+1; ny++){
+          if (ny<0||ny>=rows) continue;
+          for (let nx=gx-1; nx<=gx+1; nx++){
+            if (nx<0||nx>=cols) continue;
+            const [sx,sy]=seeds[ny][nx]; const d=(sx-x)*(sx-x)+(sy-y)*(sy-y);
+            if (d<best){ best=d; bestPt=[sx,sy]; }
+          }
+        }
+        const sxp=Math.min(w-1,Math.max(0,Math.round(bestPt[0]))), syp=Math.min(h-1,Math.max(0,Math.round(bestPt[1])));
+        const srcIdx=(syp*w+sxp)*4;
+        const r=imgData[srcIdx],g=imgData[srcIdx+1],b=imgData[srcIdx+2],a=imgData[srcIdx+3];
+        if (a<10) continue;
+        const lum=applyLum((0.2126*r+0.7152*g+0.0722*b)/255);
+        let cr,cg,cb;
+        if (state.colorMode==='original'){ cr=r; cg=g; cb=b; }
+        else if (state.colorMode==='solid'){ [cr,cg,cb]=hexToRgb(state.fg); }
+        else { [cr,cg,cb]=gradientColorAt(lum); }
+        const dstIdx=(y*w+x)*4;
+        data[dstIdx]=cr; data[dstIdx+1]=cg; data[dstIdx+2]=cb; data[dstIdx+3]=255;
+      }
+    }
+    compositeCtx.putImageData(out,0,0);
+    tctx.drawImage(compositeCanvas,0,0);
+  }
+  function renderVhs(tctx,w,h,eff){
+    vhsCanvas.width=w; vhsCanvas.height=h;
+    if (sourceType==='image') vhsCtx.drawImage(img,0,0,w,h); else vhsCtx.drawImage(video,0,0,w,h);
+    let src; try { src=vhsCtx.getImageData(0,0,w,h); } catch(e){ return; }
+    const inData=src.data;
+    let out; try { out=vhsCtx.createImageData(w,h); } catch(e){ return; }
+    const outData=out.data;
+    const bleed=Math.round(((eff.colorBleed??50)/100)*6);
+    const noiseAmt=(eff.noise??30)/100, scanAmt=(eff.scanlines??30)/100, trackAmt=(eff.tracking??20)/100;
+    const baseSeed=eff.seed||1337;
+    const frameSeed=(eff.animate==='video' && sourceType==='video') ? baseSeed+Math.floor(performance.now()/33) : baseSeed;
+    const rand=mulberry32(frameSeed);
+    for (let y=0;y<h;y++){
+      let rowShift=0;
+      if (trackAmt>0 && rand()<trackAmt*0.03){ rowShift=Math.round((rand()-0.5)*24*trackAmt); }
+      const scanDark=(scanAmt>0 && y%2===0) ? (1-scanAmt*0.5) : 1;
+      for (let x=0;x<w;x++){
+        const baseX=Math.min(w-1,Math.max(0,x-rowShift));
+        const rX=Math.min(w-1,Math.max(0,baseX-bleed)), bX=Math.min(w-1,Math.max(0,baseX+bleed));
+        const idxBase=(y*w+baseX)*4, idxR=(y*w+rX)*4, idxB=(y*w+bX)*4, outIdx=(y*w+x)*4;
+        let r=inData[idxR], g=inData[idxBase+1], b=inData[idxB+2], a=inData[idxBase+3];
+        r*=scanDark; g*=scanDark; b*=scanDark;
+        if (noiseAmt>0){ const n=(rand()-0.5)*255*noiseAmt*0.4; r+=n; g+=n; b+=n; }
+        outData[outIdx]=Math.max(0,Math.min(255,r)); outData[outIdx+1]=Math.max(0,Math.min(255,g)); outData[outIdx+2]=Math.max(0,Math.min(255,b)); outData[outIdx+3]=a;
+      }
+    }
+    vhsCtx.putImageData(out,0,0);
+    tctx.drawImage(vhsCanvas,0,0);
+  }
+  function renderMatrixRain(tctx,w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    const trail=eff.trail||15;
+    const chars=['0','1'];
+    tctx.textBaseline='top'; tctx.textAlign='center';
+    tctx.font=(cell*0.9)+'px "IBM Plex Mono", monospace';
+    for (let gx=0; gx<cols; gx++){
+      const headRow=Math.floor(mulberry32(gx*7919+13)()*rows);
+      for (let gy=0; gy<rows; gy++){
+        const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+        if (sw<=0||sh<=0) continue;
+        const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+        let lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+        let dist=headRow-gy;
+        if (dist<0) continue;
+        let fade=1-Math.min(1,dist/trail); if (fade<=0.03) continue;
+        const intensity=lum*fade; if (intensity<0.04) continue;
+        const rnd=mulberry32(gx*131+gy*977)();
+        const ch=chars[rnd<0.5?0:1];
+        tctx.fillStyle=colorForCell(c.r,c.g,c.b,intensity);
+        tctx.globalAlpha=Math.min(1,fade+0.15);
+        tctx.fillText(ch, px+sw/2, py+sh*0.05);
+        tctx.globalAlpha=1;
+      }
+    }
+  }
+
+  function drawEffect(fx, tctx, w, h, imgData){
+    const eff = fx.state;
+    switch (fx.key){
+      case 'dots': renderDots(tctx,w,h,imgData,eff); break;
+      case 'blocks': renderBlocks(tctx,w,h,imgData,eff); break;
+      case 'facets': renderFacets(tctx,w,h,imgData,eff); break;
+      case 'rings': renderRings(tctx,w,h,imgData,eff); break;
+      case 'ascii': renderAscii(tctx,w,h,imgData,eff); break;
+      case 'matrixrain': renderMatrixRain(tctx,w,h,imgData,eff); break;
+      case 'dither': renderDither(tctx,w,h,imgData,eff); break;
+      case 'threshold': renderThreshold(tctx,w,h,imgData,eff); break;
+      case 'edgedetect': renderEdgeDetect(tctx,w,h,imgData,eff); break;
+      case 'crosshatch': renderCrosshatch(tctx,w,h,imgData,eff); break;
+      case 'pixelsort': renderPixelSort(tctx,w,h,imgData,eff); break;
+      case 'voronoi': renderVoronoi(tctx,w,h,imgData,eff); break;
+      case 'glow': renderGlow(tctx,w,h,eff); break;
+      case 'grain': renderGrain(tctx,w,h,eff); break;
+      case 'pinchbulge': renderPinchBulge(tctx,w,h,imgData,eff); break;
+      case 'beads': renderBeads(tctx,w,h,imgData,eff); break;
+      case 'vhs': renderVhs(tctx,w,h,eff); break;
+    }
+  }
+
+  // ---------- true vector SVG export (for shape-based effects only) ----------
+  const VECTOR_EFFECTS = new Set(['dots','blocks','facets','rings','ascii','matrixrain','dither','crosshatch','beads','voronoi']);
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function svgDots(w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell), growthF=eff.growth/100, shape=eff.shape||'circle';
+    let out='';
+    for (let gy=0; gy<rows; gy++){ for (let gx=0; gx<cols; gx++){
+      const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+      if (sw<=0||sh<=0) continue;
+      const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+      const lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+      const radius=cell*0.5*growthF*lum; if (radius<0.4) continue;
+      const cx=px+sw/2, cy=py+sh/2, fill=colorForCell(c.r,c.g,c.b,lum);
+      if (shape==='square') out += `<rect x="${(cx-radius).toFixed(1)}" y="${(cy-radius).toFixed(1)}" width="${(radius*2).toFixed(1)}" height="${(radius*2).toFixed(1)}" fill="${fill}"/>`;
+      else if (shape==='diamond') out += `<polygon points="${cx.toFixed(1)},${(cy-radius).toFixed(1)} ${(cx+radius).toFixed(1)},${cy.toFixed(1)} ${cx.toFixed(1)},${(cy+radius).toFixed(1)} ${(cx-radius).toFixed(1)},${cy.toFixed(1)}" fill="${fill}"/>`;
+      else out += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${radius.toFixed(1)}" fill="${fill}"/>`;
+    }}
+    return out;
+  }
+  function svgBlocks(w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell), growthF=eff.growth/100;
+    let out='';
+    for (let gy=0; gy<rows; gy++){ for (let gx=0; gx<cols; gx++){
+      const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+      if (sw<=0||sh<=0) continue;
+      const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+      const lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+      const size=cell*growthF*lum; if (size<0.6) continue;
+      const off=(cell-size)/2;
+      out += `<rect x="${(px+off).toFixed(1)}" y="${(py+off).toFixed(1)}" width="${size.toFixed(1)}" height="${size.toFixed(1)}" fill="${colorForCell(c.r,c.g,c.b,lum)}"/>`;
+    }}
+    return out;
+  }
+  function svgFacets(w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    let out='';
+    for (let gy=0; gy<rows; gy++){ for (let gx=0; gx<cols; gx++){
+      const x0=gx*cell, y0=gy*cell, x1=Math.min(x0+cell,w), y1=Math.min(y0+cell,h);
+      if (x1-x0<1||y1-y0<1) continue;
+      const flip=(gx+gy)%2===0;
+      const triA = flip ? [[x0,y0],[x1,y0],[x0,y1]] : [[x0,y0],[x1,y0],[x1,y1]];
+      const triB = flip ? [[x1,y0],[x1,y1],[x0,y1]] : [[x0,y0],[x1,y1],[x0,y1]];
+      [triA,triB].forEach(tri => {
+        const c=avgTriColor(imgData,w,h,tri); if (c.a<10) return;
+        const lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+        const pts = tri.map(p=>`${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+        out += `<polygon points="${pts}" fill="${colorForCell(c.r,c.g,c.b,lum)}"/>`;
+      });
+    }}
+    return out;
+  }
+  function svgRings(w,h,imgData,eff){
+    const cx=w/2, cy=h/2, maxRadius=Math.sqrt(cx*cx+cy*cy), ringPitch=Math.max(4,eff.cellSize), growthF=eff.growth/100;
+    const numRings=Math.ceil(maxRadius/ringPitch);
+    let out='';
+    for (let ring=0; ring<numRings; ring++){
+      const rDist=ring*ringPitch+ringPitch*0.5, circumference=2*Math.PI*rDist;
+      const numSlices=Math.max(6,Math.round(circumference/ringPitch));
+      for (let s=0; s<numSlices; s++){
+        const angle=(s/numSlices)*Math.PI*2, sx=cx+Math.cos(angle)*rDist, sy=cy+Math.sin(angle)*rDist;
+        if (sx<0||sy<0||sx>=w||sy>=h) continue;
+        const idx=(Math.floor(sy)*w+Math.floor(sx))*4;
+        const r=imgData[idx],g=imgData[idx+1],b=imgData[idx+2],a=imgData[idx+3]; if (a<10) continue;
+        const lum=applyLum((0.2126*r+0.7152*g+0.0722*b)/255);
+        const radius=ringPitch*0.5*growthF*lum; if (radius<0.4) continue;
+        out += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${radius.toFixed(1)}" fill="${colorForCell(r,g,b,lum)}"/>`;
+      }
+    }
+    return out;
+  }
+  function svgAscii(w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    const chars = eff.charset==='custom' ? (eff.customChars && eff.customChars.trim().length ? [' '].concat(eff.customChars.trim().split('')) : CHARSETS.density) : CHARSETS[eff.charset];
+    let out='';
+    for (let gy=0; gy<rows; gy++){ for (let gx=0; gx<cols; gx++){
+      const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+      if (sw<=0||sh<=0) continue;
+      const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+      const lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255); if (lum<0.035) continue;
+      const idx=Math.min(chars.length-1, Math.floor(lum*chars.length));
+      const token=chars[idx]; if (!token||token===' ') continue;
+      const fontSize = token.length>1 ? cell*0.62 : cell*0.95;
+      out += `<text x="${(px+sw/2).toFixed(1)}" y="${(py+sh*0.05).toFixed(1)}" font-family="IBM Plex Mono, monospace" font-size="${fontSize.toFixed(1)}" text-anchor="middle" dominant-baseline="hanging" fill="${colorForCell(c.r,c.g,c.b,lum)}">${esc(token)}</text>`;
+    }}
+    return out;
+  }
+  function svgMatrixRain(w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell), trail=eff.trail||15, chars=['0','1'];
+    let out='';
+    for (let gx=0; gx<cols; gx++){
+      const headRow=Math.floor(mulberry32(gx*7919+13)()*rows);
+      for (let gy=0; gy<rows; gy++){
+        const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+        if (sw<=0||sh<=0) continue;
+        const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+        const lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+        let dist=headRow-gy; if (dist<0) dist+=rows;
+        const fade=1-Math.min(1,dist/trail); if (fade<=0.03) continue;
+        const intensity=lum*fade; if (intensity<0.04) continue;
+        const rnd=mulberry32(gx*131+gy*977)();
+        const ch=chars[rnd<0.5?0:1];
+        const opacity=Math.min(1,fade+0.15);
+        out += `<text x="${(px+sw/2).toFixed(1)}" y="${(py+sh*0.05).toFixed(1)}" font-family="IBM Plex Mono, monospace" font-size="${(cell*0.9).toFixed(1)}" text-anchor="middle" dominant-baseline="hanging" opacity="${opacity.toFixed(2)}" fill="${colorForCell(c.r,c.g,c.b,intensity)}">${ch}</text>`;
+      }
+    }
+    return out;
+  }
+  function svgDither(w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    let out='';
+    for (let gy=0; gy<rows; gy++){ for (let gx=0; gx<cols; gx++){
+      const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+      if (sw<=0||sh<=0) continue;
+      const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+      const lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+      const bayerVal=(BAYER4[(gy%4)*4+(gx%4)]+0.5)/16;
+      if (lum>=bayerVal) out += `<rect x="${px}" y="${py}" width="${sw}" height="${sh}" fill="${colorForCell(c.r,c.g,c.b,lum)}"/>`;
+    }}
+    return out;
+  }
+  function svgCrosshatch(w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell), angles=[45,-45,0,90];
+    const strokeW=Math.max(1,cell*0.08);
+    let out='';
+    for (let gy=0; gy<rows; gy++){ for (let gx=0; gx<cols; gx++){
+      const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+      if (sw<=0||sh<=0) continue;
+      const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+      const lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+      const dark=1-lum;
+      const levels = dark>0.75?4: dark>0.5?3: dark>0.25?2: dark>0.08?1:0;
+      if (levels===0) continue;
+      const stroke=colorForCell(c.r,c.g,c.b,lum);
+      const cx=px+sw/2, cy=py+sh/2, r=Math.max(sw,sh)*0.7;
+      for (let L=0; L<levels; L++){
+        const a=angles[L]*Math.PI/180;
+        out += `<line x1="${(cx-Math.cos(a)*r).toFixed(1)}" y1="${(cy-Math.sin(a)*r).toFixed(1)}" x2="${(cx+Math.cos(a)*r).toFixed(1)}" y2="${(cy+Math.sin(a)*r).toFixed(1)}" stroke="${stroke}" stroke-width="${strokeW.toFixed(1)}"/>`;
+      }
+    }}
+    return out;
+  }
+  function svgBeads(w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    const dotScale=(eff.dotSize??65)/100, highlightAlpha=(eff.highlight??50)/100;
+    let out='';
+    for (let gy=0; gy<rows; gy++){ for (let gx=0; gx<cols; gx++){
+      const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+      if (sw<=0||sh<=0) continue;
+      const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+      const lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+      out += `<rect x="${px}" y="${py}" width="${sw}" height="${sh}" fill="${colorForCell(c.r,c.g,c.b,lum)}"/>`;
+      if (highlightAlpha>0){
+        const radius=Math.min(sw,sh)*0.5*dotScale;
+        if (radius>=0.4){
+          const cx=(px+sw/2).toFixed(1), cy=(py+sh/2).toFixed(1);
+          out += `<circle cx="${cx}" cy="${cy}" r="${radius.toFixed(1)}" fill="#ffffff" opacity="${(highlightAlpha*0.45).toFixed(2)}"/>`;
+          out += `<circle cx="${cx}" cy="${cy}" r="${(radius*0.55).toFixed(1)}" fill="#ffffff" opacity="${highlightAlpha.toFixed(2)}"/>`;
+        }
+      }
+    }}
+    return out;
+  }
+  function svgVoronoi(w,h,imgData,eff){
+    const cell=eff.cellSize, cols=Math.ceil(w/cell), rows=Math.ceil(h/cell);
+    const seeds=[];
+    for (let gy=0; gy<rows; gy++){ seeds.push([]); for (let gx=0; gx<cols; gx++){
+      const r1=mulberry32(gx*928371+gy*57+7)(), r2=mulberry32(gx*17+gy*928371+11)();
+      seeds[gy].push([gx*cell+r1*cell, gy*cell+r2*cell]);
+    }}
+    let out='';
+    for (let gy=0; gy<rows; gy++){ for (let gx=0; gx<cols; gx++){
+      const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+      if (sw<=0||sh<=0) continue;
+      const cx=px+sw/2, cy=py+sh/2;
+      let best=Infinity, bestPt=null;
+      for (let ny=gy-1; ny<=gy+1; ny++){ if (ny<0||ny>=rows) continue;
+        for (let nx=gx-1; nx<=gx+1; nx++){ if (nx<0||nx>=cols) continue;
+          const [sx,sy]=seeds[ny][nx]; const d=(sx-cx)*(sx-cx)+(sy-cy)*(sy-cy);
+          if (d<best){ best=d; bestPt=[sx,sy]; }
+        }}
+      const sxp=Math.min(w-1,Math.max(0,Math.round(bestPt[0]))), syp=Math.min(h-1,Math.max(0,Math.round(bestPt[1])));
+      const idx=(syp*w+sxp)*4;
+      const r=imgData[idx],g=imgData[idx+1],b=imgData[idx+2],a=imgData[idx+3]; if (a<10) continue;
+      const lum=applyLum((0.2126*r+0.7152*g+0.0722*b)/255);
+      out += `<rect x="${px}" y="${py}" width="${sw}" height="${sh}" fill="${colorForCell(r,g,b,lum)}"/>`;
+    }}
+    return out;
+  }
+
+  function buildVectorSvgShapes(fx, w, h, imgData){
+    const eff = fx.state;
+    switch (fx.key){
+      case 'dots': return svgDots(w,h,imgData,eff);
+      case 'blocks': return svgBlocks(w,h,imgData,eff);
+      case 'facets': return svgFacets(w,h,imgData,eff);
+      case 'rings': return svgRings(w,h,imgData,eff);
+      case 'ascii': return svgAscii(w,h,imgData,eff);
+      case 'matrixrain': return svgMatrixRain(w,h,imgData,eff);
+      case 'dither': return svgDither(w,h,imgData,eff);
+      case 'crosshatch': return svgCrosshatch(w,h,imgData,eff);
+      case 'beads': return svgBeads(w,h,imgData,eff);
+      case 'voronoi': return svgVoronoi(w,h,imgData,eff);
+    }
+    return null;
+  }
+
+  function buildSvgString(w, h){
+    const fx = getActiveEffect();
+    let bgRect = '';
+    if (!state.transparent){
+      const bgColor = state.colorMode==='gradient' ? gradRgbStr(gradientColorAt(0)) : state.bgOnly;
+      bgRect = `<rect x="0" y="0" width="${w}" height="${h}" fill="${bgColor}"/>`;
+    }
+    if (fx && VECTOR_EFFECTS.has(fx.key)){
+      sampleCanvas.width=w; sampleCanvas.height=h;
+      if (sourceType==='image') sampleCtx.drawImage(img,0,0,w,h); else sampleCtx.drawImage(video,0,0,w,h);
+      let imgData=null;
+      try { imgData = sampleCtx.getImageData(0,0,w,h).data; } catch(e){}
+      const shapes = buildVectorSvgShapes(fx, w, h, imgData) || '';
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${bgRect}${shapes}</svg>`;
+    }
+    // Raster-only effects (Glow, Grain, Threshold, Edge Detection, Pixel Sort, VHS):
+    // embed the rendered result as an image inside the SVG rather than faking vector shapes.
+    const rasterCanvas = document.createElement('canvas'); rasterCanvas.width=w; rasterCanvas.height=h;
+    renderToTarget(rasterCanvas.getContext('2d'), w, h);
+    const dataUrl = rasterCanvas.toDataURL('image/png');
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><image href="${dataUrl}" x="0" y="0" width="${w}" height="${h}"/></svg>`;
+  }
+
+  // ---------- core render (single active effect, no compositing) ----------
+  function renderToTarget(targetCtx, w, h){
+    if (!srcW || !srcH) return;
+    sampleCanvas.width=w; sampleCanvas.height=h;
+    if (sourceType==='image') sampleCtx.drawImage(img,0,0,w,h); else sampleCtx.drawImage(video,0,0,w,h);
+    let imgData=null;
+    try { imgData = sampleCtx.getImageData(0,0,w,h).data; } catch(e){}
+
+    targetCtx.clearRect(0,0,w,h);
+    if (!state.transparent){
+      targetCtx.fillStyle = state.colorMode==='gradient' ? gradRgbStr(gradientColorAt(0)) : state.bgOnly;
+      targetCtx.fillRect(0,0,w,h);
+    }
+    const fx = getActiveEffect();
+    if (fx) drawEffect(fx, targetCtx, w, h, imgData);
+  }
+
+  function render(){ renderToTarget(ctx, canvas.width, canvas.height); }
+  function renderIfReady(){
+    if (sourceType==='image' && img.complete && srcW) render();
+    else if (sourceType==='video'){ /* video loop handles it */ }
+  }
+
+})();
+</script>
+</body>
+</html>
