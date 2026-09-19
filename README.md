@@ -4,16 +4,17 @@ Effektz is a browser-based studio for applying generative, halftone-style visual
 
 ## Features
 
-- **18 effects** across four families:
+- **23 effects** across five families:
   - **Halftone / mosaic** — Dots, Blockify, Facets, Rings, Beads, Voronoi
   - **Type-based** — ASCII, Matrix Rain
-  - **Retro / glitch** — Dithering, Threshold, Pixel Sort, VHS
-  - **Photographic / distortion** — Film Grain, Glow, Edge Detection, Crosshatch, Pinch/Bulge
+  - **Retro / glitch** — Dithering, Threshold, Pixel Sort, VHS, Glitch, Scan Damage
+  - **Photographic / distortion** — Film Grain, Glow, Edge Detection, Crosshatch, Pinch/Bulge, Chrome Swirl
+  - **Generative / pattern** — Kaleidoscope, Noise Burst, Wave Lines
 - **Presets** — quick-start parameter combinations on effects where they add real value (e.g. ASCII's Terminal/Binary character sets, Film Grain's Color Grain).
 - **Adjustments** — Contrast, Gamma, Brightness, Invert, applied before the effect runs.
 - **Color modes** — Original source colors, a solid foreground/background pair, or a 3-stop gradient (with presets: Ocean, Heat Map, Red Ring, Mono Tone).
 - **Image or video input** — drag and drop or click to browse; video is processed live, frame by frame.
-- **Export** as PNG, JPG, or **SVG** — effects built from discrete shapes (Dots, Blockify, Facets, Rings, ASCII, Matrix Rain, Dithering, Crosshatch, Beads, Voronoi) export as true vector markup; pixel-based effects (Glow, Film Grain, Threshold, Edge Detection, Pixel Sort, VHS) embed a rasterized image inside the SVG instead. Export resolution is independently selectable at 1x–4x the source, regardless of the on-screen preview size.
+- **Export** as PNG, JPG, or **SVG** — effects built from discrete shapes (Dots, Blockify, Facets, Rings, ASCII, Matrix Rain, Dithering, Crosshatch, Beads, Voronoi) export as true vector markup; pixel-based effects (Glow, Film Grain, Threshold, Edge Detection, Pixel Sort, VHS) embed a rasterized image inside the SVG instead. Export resolution is independently selectable at 1x–4x the source. Pixel-based parameters (cell size, spacing, blur, etc.) scale with the export resolution, so the exported result matches the on-screen preview exactly — just at higher resolution.
 
 ## Usage
 

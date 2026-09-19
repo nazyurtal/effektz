@@ -618,7 +618,8 @@
     { key:'pinchbulge', name:'Pinch/Bulge', desc:'Radial lens warp — pinch inward or bulge outward',
       params:[
         {type:'slider', prop:'amount', label:'Amount', min:-100, max:100, def:50, suffix:'%'},
-        {type:'slider', prop:'radius', label:'Radius', min:10, max:100, def:60, suffix:'%'}
+        {type:'slider', prop:'radius', label:'Radius', min:10, max:100, def:60, suffix:'%'},
+        {type:'slider', prop:'seed', label:'Seed', min:1, max:9999, def:1337, suffix:''}
       ]},
     { key:'beads', name:'Beads', desc:'Edge-to-edge mosaic with a bead-like highlight',
       params:[
@@ -634,6 +635,43 @@
         {type:'slider', prop:'tracking', label:'Tracking Error', min:0, max:100, def:20, suffix:'%'},
         {type:'slider', prop:'seed', label:'Seed', min:1, max:9999, def:1337, suffix:''},
         {type:'toggle', prop:'animate', label:'Output', def:'image', onLabel:'Video', offLabel:'Image', onVal:'video', offVal:'image'}
+      ]},
+    { key:'kaleidoscope', name:'Kaleidoscope', desc:'Mirrors the image into radial symmetric segments',
+      params:[
+        {type:'slider', prop:'segments', label:'Segments', min:3, max:16, def:8, suffix:''},
+        {type:'slider', prop:'rotation', label:'Rotation', min:0, max:360, def:0, suffix:'°'}
+      ]},
+    { key:'chromeswirl', name:'Chrome Swirl', desc:'Liquid-marble twist distortion from the center',
+      params:[
+        {type:'slider', prop:'twist', label:'Twist', min:-200, max:200, def:80, suffix:'°'},
+        {type:'slider', prop:'radius', label:'Radius', min:10, max:100, def:70, suffix:'%'}
+      ]},
+    { key:'noiseburst', name:'Noise Burst', desc:'Scattered stipple dots radiating from the center',
+      params:[
+        {type:'slider', prop:'density', label:'Density', min:10, max:100, def:50, suffix:'%'},
+        {type:'slider', prop:'spread', label:'Spread', min:10, max:100, def:60, suffix:'%'},
+        {type:'slider', prop:'dotSize', label:'Dot Size', min:1, max:10, def:3, suffix:'px'}
+      ]},
+    { key:'wavelines', name:'Wave Lines', desc:'Horizontal lines that ripple with brightness',
+      params:[
+        {type:'slider', prop:'spacing', label:'Line Spacing', min:4, max:30, def:10, suffix:'px'},
+        {type:'slider', prop:'amplitude', label:'Amplitude', min:0, max:30, def:8, suffix:'px'},
+        {type:'slider', prop:'frequency', label:'Frequency', min:1, max:20, def:6, suffix:''}
+      ]},
+    { key:'glitch', name:'Glitch', desc:'Datamosh-style block shift and channel split',
+      params:[
+        {type:'slider', prop:'blockSize', label:'Block Size', min:4, max:60, def:20, suffix:'px'},
+        {type:'slider', prop:'shift', label:'Shift Amount', min:0, max:100, def:50, suffix:'%'},
+        {type:'slider', prop:'channelSplit', label:'Channel Split', min:0, max:100, def:40, suffix:'%'}
+      ]},
+    { key:'scandamage', name:'Scan Damage', desc:'Aged document scan: torn mosaic, OCR symbols and garbled text',
+      params:[
+        {type:'slider', prop:'cellSize', label:'Cell Size', min:10, max:60, def:28, suffix:'px'},
+        {type:'slider', prop:'holeDensity', label:'Hole Density', min:0, max:100, def:35, suffix:'%'},
+        {type:'slider', prop:'symbolDensity', label:'Symbol Density', min:0, max:100, def:50, suffix:'%'},
+        {type:'slider', prop:'edgeHighlight', label:'Edge Highlight', min:0, max:100, def:70, suffix:'%'},
+        {type:'slider', prop:'textDensity', label:'Text Density', min:0, max:100, def:40, suffix:'%'},
+        {type:'slider', prop:'seed', label:'Seed', min:1, max:9999, def:1337, suffix:''}
       ]}
   ];
   effects.forEach(fx => {
@@ -1234,7 +1272,11 @@
   function renderPinchBulge(tctx,w,h,imgData,eff){
     const amount = (eff.amount ?? 50) / 100;
     const radiusF = (eff.radius ?? 60) / 100;
-    const cx = w/2, cy = h/2;
+    const seed = eff.seed || 1337;
+    const rand = mulberry32(seed);
+    const offX = (rand()-0.5) * w * 0.3;
+    const offY = (rand()-0.5) * h * 0.3;
+    const cx = w/2 + offX, cy = h/2 + offY;
     const maxR = Math.min(w,h)/2 * radiusF;
     compositeCanvas.width=w; compositeCanvas.height=h;
     let out; try { out = compositeCtx.createImageData(w,h); } catch(e){ return; }
@@ -1504,6 +1546,217 @@
     }
   }
 
+  function renderKaleidoscope(tctx,w,h,imgData,eff){
+    const segments = Math.max(3, eff.segments||8);
+    const rotationRad = (eff.rotation||0) * Math.PI/180;
+    const cx=w/2, cy=h/2;
+    const segAngle = Math.PI*2/segments;
+    compositeCanvas.width=w; compositeCanvas.height=h;
+    let out; try{ out=compositeCtx.createImageData(w,h);}catch(e){return;}
+    const data=out.data;
+    for (let y=0;y<h;y++){
+      for (let x=0;x<w;x++){
+        const dx=x-cx, dy=y-cy;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        let angle = Math.atan2(dy,dx) - rotationRad;
+        angle = ((angle % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+        const segIndex = Math.floor(angle/segAngle);
+        let local = angle - segIndex*segAngle;
+        if (segIndex % 2 === 1) local = segAngle - local;
+        const sx = Math.round(cx + Math.cos(local)*dist);
+        const sy = Math.round(cy + Math.sin(local)*dist);
+        const sxc=Math.min(w-1,Math.max(0,sx)), syc=Math.min(h-1,Math.max(0,sy));
+        const srcIdx=(syc*w+sxc)*4, dstIdx=(y*w+x)*4;
+        data[dstIdx]=imgData[srcIdx]; data[dstIdx+1]=imgData[srcIdx+1]; data[dstIdx+2]=imgData[srcIdx+2]; data[dstIdx+3]=imgData[srcIdx+3];
+      }
+    }
+    compositeCtx.putImageData(out,0,0);
+    tctx.drawImage(compositeCanvas,0,0);
+  }
+  function renderChromeSwirl(tctx,w,h,imgData,eff){
+    const twist = (eff.twist??80) * Math.PI/180;
+    const radiusF = (eff.radius??70)/100;
+    const cx=w/2, cy=h/2;
+    const maxR = Math.min(w,h)/2*radiusF;
+    compositeCanvas.width=w; compositeCanvas.height=h;
+    let out; try{out=compositeCtx.createImageData(w,h);}catch(e){return;}
+    const data=out.data;
+    for (let y=0;y<h;y++){
+      for (let x=0;x<w;x++){
+        const dx=x-cx, dy=y-cy;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        let angle=Math.atan2(dy,dx);
+        if (dist<maxR && maxR>0){
+          const factor = 1-dist/maxR;
+          angle += twist*factor*factor;
+        }
+        const sx=cx+Math.cos(angle)*dist, sy=cy+Math.sin(angle)*dist;
+        const sxc=Math.min(w-1,Math.max(0,Math.round(sx))), syc=Math.min(h-1,Math.max(0,Math.round(sy)));
+        const srcIdx=(syc*w+sxc)*4, dstIdx=(y*w+x)*4;
+        data[dstIdx]=imgData[srcIdx]; data[dstIdx+1]=imgData[srcIdx+1]; data[dstIdx+2]=imgData[srcIdx+2]; data[dstIdx+3]=imgData[srcIdx+3];
+      }
+    }
+    compositeCtx.putImageData(out,0,0);
+    tctx.drawImage(compositeCanvas,0,0);
+  }
+  function renderNoiseBurst(tctx,w,h,imgData,eff){
+    const density=(eff.density??50)/100, spread=(eff.spread??60)/100, dotSize=eff.dotSize||3;
+    const cx=w/2, cy=h/2;
+    const maxR=Math.sqrt(cx*cx+cy*cy)*spread;
+    const count=Math.round(density*6000);
+    const rand=mulberry32(12345);
+    for (let i=0;i<count;i++){
+      const r1=rand(), r2=rand();
+      const dist=Math.pow(r1,1.5)*maxR;
+      const angle=r2*Math.PI*2;
+      const x=Math.round(cx+Math.cos(angle)*dist), y=Math.round(cy+Math.sin(angle)*dist);
+      if (x<0||y<0||x>=w||y>=h) continue;
+      const idx=(y*w+x)*4;
+      const r=imgData[idx],g=imgData[idx+1],b=imgData[idx+2],a=imgData[idx+3]; if (a<10) continue;
+      const lum=applyLum((0.2126*r+0.7152*g+0.0722*b)/255); if (lum<0.08) continue;
+      tctx.fillStyle=colorForCell(r,g,b,lum);
+      tctx.beginPath(); tctx.arc(x,y,dotSize*(0.5+lum*0.5),0,Math.PI*2); tctx.fill();
+    }
+  }
+  function renderWaveLines(tctx,w,h,imgData,eff){
+    const spacing=eff.spacing||10, amplitude=eff.amplitude||8, freq=(eff.frequency||6)/10;
+    tctx.lineWidth=Math.max(1,spacing*0.15); tctx.lineJoin='round'; tctx.lineCap='round';
+    for (let baseY=spacing/2; baseY<h; baseY+=spacing){
+      const y0=Math.min(h-1,Math.max(0,Math.round(baseY)));
+      let sr=0,sg=0,sb=0,n=0;
+      for (let x=0;x<w;x+=4){ const idx=(y0*w+x)*4; sr+=imgData[idx]; sg+=imgData[idx+1]; sb+=imgData[idx+2]; n++; }
+      if (n===0) continue;
+      const ar=sr/n, ag=sg/n, ab=sb/n;
+      const alum=applyLum((0.2126*ar+0.7152*ag+0.0722*ab)/255);
+      tctx.strokeStyle=colorForCell(ar,ag,ab,alum);
+      tctx.beginPath();
+      let started=false;
+      for (let x=0;x<w;x+=2){
+        const idx=(y0*w+x)*4;
+        const r=imgData[idx],g=imgData[idx+1],b=imgData[idx+2],a=imgData[idx+3]; if (a<10) continue;
+        const lum=applyLum((0.2126*r+0.7152*g+0.0722*b)/255);
+        const y=baseY - lum*amplitude - Math.sin(x*freq*0.1)*amplitude*0.25;
+        if (!started){ tctx.moveTo(x,y); started=true; } else tctx.lineTo(x,y);
+      }
+      tctx.stroke();
+    }
+  }
+  function renderGlitch(tctx,w,h,imgData,eff){
+    const blockSize=eff.blockSize||20, shiftAmt=(eff.shift??50)/100, channelSplit=(eff.channelSplit??40)/100;
+    const rand=mulberry32(777);
+    compositeCanvas.width=w; compositeCanvas.height=h;
+    let out; try{out=compositeCtx.createImageData(w,h);}catch(e){return;}
+    const data=out.data;
+    const rowsCount=Math.ceil(h/blockSize);
+    const rowShifts=[];
+    for (let i=0;i<rowsCount;i++) rowShifts.push(rand()<shiftAmt*0.5 ? Math.round((rand()-0.5)*w*0.3*shiftAmt) : 0);
+    const chBleed=Math.round(channelSplit*10);
+    for (let y=0;y<h;y++){
+      const rowIdx=Math.floor(y/blockSize);
+      const shift=rowShifts[rowIdx]||0;
+      for (let x=0;x<w;x++){
+        const baseX=((x-shift)%w+w)%w;
+        const rX=((baseX-chBleed)%w+w)%w, bX=((baseX+chBleed)%w+w)%w;
+        const idxR=(y*w+rX)*4, idxG=(y*w+baseX)*4, idxB=(y*w+bX)*4, dst=(y*w+x)*4;
+        data[dst]=imgData[idxR]; data[dst+1]=imgData[idxG+1]; data[dst+2]=imgData[idxB+2]; data[dst+3]=imgData[idxG+3];
+      }
+    }
+    compositeCtx.putImageData(out,0,0);
+    tctx.drawImage(compositeCanvas,0,0);
+  }
+
+  function renderScanDamage(tctx,w,h,imgData,eff){
+    const cell = eff.cellSize||28;
+    const cols = Math.ceil(w/cell), rows = Math.ceil(h/cell);
+    const holeDensity = (eff.holeDensity??35)/100;
+    const symbolDensity = (eff.symbolDensity??50)/100;
+    const edgeHighlight = (eff.edgeHighlight??70)/100;
+    const textDensity = (eff.textDensity??40)/100;
+    const rand = mulberry32(eff.seed||1337);
+
+    // 1. aged paper background with subtle mottling
+    tctx.fillStyle = '#ede0c8';
+    tctx.fillRect(0,0,w,h);
+    for (let i=0;i<80;i++){
+      const x=rand()*w, y=rand()*h, r=20+rand()*60;
+      tctx.fillStyle = `rgba(180,150,100,${(0.02+rand()*0.03).toFixed(3)})`;
+      tctx.beginPath(); tctx.arc(x,y,r,0,Math.PI*2); tctx.fill();
+    }
+
+    // 2. organic "torn" hole regions
+    const holeCount = Math.round(holeDensity*8);
+    const holeSeeds = [];
+    for (let i=0;i<holeCount;i++) holeSeeds.push([rand()*w, rand()*h, (cell*1.5)+rand()*cell*4]);
+    function isHole(cx,cy){
+      for (let i=0;i<holeSeeds.length;i++){
+        const dx=cx-holeSeeds[i][0], dy=cy-holeSeeds[i][1];
+        if (Math.sqrt(dx*dx+dy*dy) < holeSeeds[i][2]) return true;
+      }
+      return false;
+    }
+    const filled=[];
+    for (let gy=0; gy<rows; gy++){
+      filled.push([]);
+      for (let gx=0; gx<cols; gx++) filled[gy].push(!isHole(gx*cell+cell/2, gy*cell+cell/2));
+    }
+
+    // 3. mosaic cells (only where filled)
+    for (let gy=0; gy<rows; gy++){
+      for (let gx=0; gx<cols; gx++){
+        if (!filled[gy][gx]) continue;
+        const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+        if (sw<=0||sh<=0) continue;
+        const c=averageCell(imgData,w,px,py,sw,sh); if (c.a<10) continue;
+        const lum=applyLum((0.2126*c.r+0.7152*c.g+0.0722*c.b)/255);
+        tctx.fillStyle=colorForCell(c.r,c.g,c.b,lum);
+        tctx.fillRect(px,py,sw,sh);
+      }
+    }
+
+    // 4. chartreuse edge highlight where a filled cell borders a hole/boundary
+    if (edgeHighlight>0){
+      tctx.fillStyle = `rgba(195,225,35,${(0.55*edgeHighlight).toFixed(2)})`;
+      const bandW = Math.max(2, cell*0.16);
+      for (let gy=0; gy<rows; gy++){
+        for (let gx=0; gx<cols; gx++){
+          if (!filled[gy][gx]) continue;
+          const px=gx*cell, py=gy*cell, sw=Math.min(cell,w-px), sh=Math.min(cell,h-py);
+          if (gx===0 || !filled[gy][gx-1]) tctx.fillRect(px,py,bandW,sh);
+          if (gx===cols-1 || !filled[gy][gx+1]) tctx.fillRect(px+sw-bandW,py,bandW,sh);
+          if (gy===0 || !filled[gy-1][gx]) tctx.fillRect(px,py,sw,bandW);
+          if (gy===rows-1 || !filled[gy+1][gx]) tctx.fillRect(px,py+sh-bandW,sw,bandW);
+        }
+      }
+    }
+
+    // 5. scattered OCR-artifact symbols
+    if (symbolDensity>0){
+      const symbols=['(',')','~','+','o','O','·','–','^'];
+      const symCount=Math.round(symbolDensity*150);
+      tctx.fillStyle='rgba(90,60,40,0.55)';
+      tctx.font='13px monospace';
+      tctx.textAlign='center'; tctx.textBaseline='middle';
+      for (let i=0;i<symCount;i++){
+        tctx.fillText(symbols[Math.floor(rand()*symbols.length)], rand()*w, rand()*h);
+      }
+    }
+
+    // 6. garbled scrambled-text blocks
+    if (textDensity>0){
+      const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      tctx.font='10px monospace';
+      tctx.fillStyle='rgba(70,45,30,0.5)';
+      tctx.textAlign='left'; tctx.textBaseline='alphabetic';
+      const wordCount=Math.round(textDensity*30);
+      for (let i=0;i<wordCount;i++){
+        const wordLen=2+Math.floor(rand()*8);
+        let word='';
+        for (let j=0;j<wordLen;j++) word += letters[Math.floor(rand()*letters.length)];
+        tctx.fillText(word, rand()*w, rand()*h);
+      }
+    }
+  }
+
   function drawEffect(fx, tctx, w, h, imgData){
     const eff = fx.state;
     switch (fx.key){
@@ -1524,11 +1777,17 @@
       case 'pinchbulge': renderPinchBulge(tctx,w,h,imgData,eff); break;
       case 'beads': renderBeads(tctx,w,h,imgData,eff); break;
       case 'vhs': renderVhs(tctx,w,h,eff); break;
+      case 'kaleidoscope': renderKaleidoscope(tctx,w,h,imgData,eff); break;
+      case 'chromeswirl': renderChromeSwirl(tctx,w,h,imgData,eff); break;
+      case 'noiseburst': renderNoiseBurst(tctx,w,h,imgData,eff); break;
+      case 'wavelines': renderWaveLines(tctx,w,h,imgData,eff); break;
+      case 'glitch': renderGlitch(tctx,w,h,imgData,eff); break;
+      case 'scandamage': renderScanDamage(tctx,w,h,imgData,eff); break;
     }
   }
 
   // ---------- true vector SVG export (for shape-based effects only) ----------
-  const VECTOR_EFFECTS = new Set(['dots','blocks','facets','rings','ascii','matrixrain','dither','crosshatch','beads','voronoi']);
+  const VECTOR_EFFECTS = new Set(['dots','blocks','facets','rings','ascii','matrixrain','dither','crosshatch','beads','voronoi','noiseburst']);
   function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   function svgDots(w,h,imgData,eff){
@@ -1717,6 +1976,28 @@
     return out;
   }
 
+  function svgNoiseBurst(w,h,imgData,eff){
+    const density=(eff.density??50)/100, spread=(eff.spread??60)/100, dotSize=eff.dotSize||3;
+    const cx=w/2, cy=h/2;
+    const maxR=Math.sqrt(cx*cx+cy*cy)*spread;
+    const count=Math.round(density*6000);
+    const rand=mulberry32(12345);
+    let out='';
+    for (let i=0;i<count;i++){
+      const r1=rand(), r2=rand();
+      const dist=Math.pow(r1,1.5)*maxR;
+      const angle=r2*Math.PI*2;
+      const x=Math.round(cx+Math.cos(angle)*dist), y=Math.round(cy+Math.sin(angle)*dist);
+      if (x<0||y<0||x>=w||y>=h) continue;
+      const idx=(y*w+x)*4;
+      const r=imgData[idx],g=imgData[idx+1],b=imgData[idx+2],a=imgData[idx+3]; if (a<10) continue;
+      const lum=applyLum((0.2126*r+0.7152*g+0.0722*b)/255); if (lum<0.08) continue;
+      const radius=dotSize*(0.5+lum*0.5);
+      out += `<circle cx="${x}" cy="${y}" r="${radius.toFixed(1)}" fill="${colorForCell(r,g,b,lum)}"/>`;
+    }
+    return out;
+  }
+
   function buildVectorSvgShapes(fx, w, h, imgData){
     const eff = fx.state;
     switch (fx.key){
@@ -1730,6 +2011,7 @@
       case 'crosshatch': return svgCrosshatch(w,h,imgData,eff);
       case 'beads': return svgBeads(w,h,imgData,eff);
       case 'voronoi': return svgVoronoi(w,h,imgData,eff);
+      case 'noiseburst': return svgNoiseBurst(w,h,imgData,eff);
     }
     return null;
   }
@@ -1746,7 +2028,8 @@
       if (sourceType==='image') sampleCtx.drawImage(img,0,0,w,h); else sampleCtx.drawImage(video,0,0,w,h);
       let imgData=null;
       try { imgData = sampleCtx.getImageData(0,0,w,h).data; } catch(e){}
-      const shapes = buildVectorSvgShapes(fx, w, h, imgData) || '';
+      const scale = (canvas.width > 0) ? (w / canvas.width) : 1;
+      const shapes = withScaledPixelParams(fx, scale, () => buildVectorSvgShapes(fx, w, h, imgData)) || '';
       return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${bgRect}${shapes}</svg>`;
     }
     // Raster-only effects (Glow, Grain, Threshold, Edge Detection, Pixel Sort, VHS):
@@ -1758,6 +2041,25 @@
   }
 
   // ---------- core render (single active effect, no compositing) ----------
+  // Which effect params are measured in pixels — these must scale with the
+  // render resolution so the export looks like a hi-res copy of the preview,
+  // not the same absolute pixel sizes on a much larger canvas.
+  const PIXEL_PROPS = new Set(['cellSize','spacing','blur','amplitude','blockSize','dotSize']);
+
+  function withScaledPixelParams(fx, scale, fn){
+    if (scale === 1 || !fx) return fn();
+    const eff = fx.state;
+    const saved = {};
+    (fx.params||[]).forEach(p => {
+      if (p.type === 'slider' && p.suffix === 'px' && PIXEL_PROPS.has(p.prop) && typeof eff[p.prop] === 'number'){
+        saved[p.prop] = eff[p.prop];
+        eff[p.prop] = Math.max(1, eff[p.prop] * scale);
+      }
+    });
+    try { return fn(); }
+    finally { for (const k in saved) eff[k] = saved[k]; }
+  }
+
   function renderToTarget(targetCtx, w, h){
     if (!srcW || !srcH) return;
     sampleCanvas.width=w; sampleCanvas.height=h;
@@ -1771,7 +2073,11 @@
       targetCtx.fillRect(0,0,w,h);
     }
     const fx = getActiveEffect();
-    if (fx) drawEffect(fx, targetCtx, w, h, imgData);
+    if (fx){
+      // scale pixel params relative to the on-screen preview width
+      const scale = (canvas.width > 0) ? (w / canvas.width) : 1;
+      withScaledPixelParams(fx, scale, () => drawEffect(fx, targetCtx, w, h, imgData));
+    }
   }
 
   function render(){ renderToTarget(ctx, canvas.width, canvas.height); }

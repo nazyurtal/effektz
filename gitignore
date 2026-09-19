@@ -7,11 +7,10 @@ Thumbs.db
 .idea/
 *.swp
 
-# Node (in case tooling is added later)
+# Node
 node_modules/
 npm-debug.log*
-yarn-error.log*
 
-# Build output (if a bundler is added later)
+# Build output
 dist/
 build/
